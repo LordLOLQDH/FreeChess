@@ -1,11 +1,22 @@
-// Touch controls for phones/tablets.
+// Mobile touch controls: tap a piece, then tap its destination.
 // Desktop drag-and-drop remains handled by controls.js.
 
 let mobileSelectedIndex = null;
 let mobileSelectedPiece = null;
 
 function mobileIsOwnPiece(piece) {
-    return piece !== 0 && ((whiteTurn && piece[0] === 'w') || (!whiteTurn && piece[0] === 'b'));
+    return piece !== 0 &&
+        ((whiteTurn && piece[0] === 'w') || (!whiteTurn && piece[0] === 'b'));
+}
+
+function mobileBoardIndexFromEvent(e) {
+    const rect = cvs.getBoundingClientRect();
+    const scaleX = cvs.width / rect.width;
+    const scaleY = cvs.height / rect.height;
+    return getBoardIndex(
+        (e.clientX - rect.left) * scaleX,
+        (e.clientY - rect.top) * scaleY
+    );
 }
 
 function mobileClearSelection() {
@@ -15,76 +26,35 @@ function mobileClearSelection() {
     update();
 }
 
-function mobileBoardIndexFromEvent(e) {
-    const rect = cvs.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (cvs.width / rect.width);
-    const y = (e.clientY - rect.top) * (cvs.height / rect.height);
-    return getBoardIndex(x, y);
-}
-
-// Castling is a special king move and is not included by getPossibleMoves().
-// Handle it explicitly for the tap-to-move controls.
-function mobileCastleSquares(piece, from) {
+function mobileCastleMoves(piece, from) {
     if (piece === 'wK' && from === 60 && whiteTurn) {
-        const squares = [];
-        if (
-            isWhiteRightCastleLegal &&
-            board.boardArr[63] === 'wR' &&
-            board.boardArr[61] === 0 &&
-            board.boardArr[62] === 0 &&
-            !whiteDangerSqrs.includes(60) &&
-            !whiteDangerSqrs.includes(61) &&
-            !whiteDangerSqrs.includes(62)
-        ) squares.push(62);
-
-        if (
-            isWhiteLeftCastleLegal &&
-            board.boardArr[56] === 'wR' &&
-            board.boardArr[59] === 0 &&
-            board.boardArr[58] === 0 &&
-            board.boardArr[57] === 0 &&
-            !whiteDangerSqrs.includes(60) &&
-            !whiteDangerSqrs.includes(59) &&
-            !whiteDangerSqrs.includes(58)
-        ) squares.push(58);
-
-        return squares;
+        const moves = [];
+        try {
+            if (canWhiteCastleRightSide(from, piece, 62)) moves.push(62);
+            if (canWhiteCastleLeftSide(from, piece, 58)) moves.push(58);
+        } catch (e) {
+            console.warn('Weiße Rochade konnte nicht geprüft werden:', e);
+        }
+        return moves;
     }
 
     if (piece === 'bK' && from === 4 && !whiteTurn) {
-        const squares = [];
-        if (
-            isBlackRightCastleLegal &&
-            board.boardArr[7] === 'bR' &&
-            board.boardArr[5] === 0 &&
-            board.boardArr[6] === 0 &&
-            !blackDangerSqrs.includes(4) &&
-            !blackDangerSqrs.includes(5) &&
-            !blackDangerSqrs.includes(6)
-        ) squares.push(6);
-
-        if (
-            isBlackLeftCastleLegal &&
-            board.boardArr[0] === 'bR' &&
-            board.boardArr[3] === 0 &&
-            board.boardArr[2] === 0 &&
-            board.boardArr[1] === 0 &&
-            !blackDangerSqrs.includes(4) &&
-            !blackDangerSqrs.includes(3) &&
-            !blackDangerSqrs.includes(2)
-        ) squares.push(2);
-
-        return squares;
+        const moves = [];
+        try {
+            if (canBlackCastleRightSide(from, piece, 6)) moves.push(6);
+            if (canBlackCastleLeftSide(from, piece, 2)) moves.push(2);
+        } catch (e) {
+            console.warn('Schwarze Rochade konnte nicht geprüft werden:', e);
+        }
+        return moves;
     }
 
     return [];
 }
 
 function mobileAllMoves(piece, from) {
-    return [
-        ...(getPossibleMoves(piece, from) || []),
-        ...mobileCastleSquares(piece, from)
-    ];
+    const normalMoves = getPossibleMoves(piece, from) || [];
+    return [...normalMoves, ...mobileCastleMoves(piece, from)];
 }
 
 function mobileShowSelection() {
@@ -99,40 +69,57 @@ function mobileShowSelection() {
         const row = Math.floor(index / 8);
         const col = index % 8;
         ctx.fillStyle = 'rgba(0, 170, 255, 0.32)';
-        ctx.fillRect(col * 60, row * 60, 60, 60);
+        ctx.fillRect(col * sqreScale, row * sqreScale, sqreScale, sqreScale);
     }
 
     const row = Math.floor(mobileSelectedIndex / 8);
     const col = mobileSelectedIndex % 8;
     ctx.strokeStyle = 'rgba(255, 215, 0, 0.95)';
     ctx.lineWidth = 4;
-    ctx.strokeRect(col * 60 + 2, row * 60 + 2, 56, 56);
+    ctx.strokeRect(
+        col * sqreScale + 2,
+        row * sqreScale + 2,
+        sqreScale - 4,
+        sqreScale - 4
+    );
 }
 
 function mobileMakeMove(from, to, piece) {
     if (!piece || from === null || to === null) return false;
 
-    // Castling: king and rook are moved together.
-    const castleSquares = mobileCastleSquares(piece, from);
-    if (castleSquares.includes(to)) {
-        if (piece === 'wK' && to === 62) {
-            whiteRightSideCastle();
-        } else if (piece === 'wK' && to === 58) {
-            whiteLeftSideCastle();
-        } else if (piece === 'bK' && to === 6) {
-            blackRightSideCastle();
-        } else if (piece === 'bK' && to === 2) {
-            blackLeftSideCastle();
-        } else {
-            return false;
-        }
-
-        halfMoveCount++;
-        fullMoveCount = roundToWhole(halfMoveCount / 2);
+    // Use the exact same castling functions as the desktop controls.
+    if (piece === 'wK' && to === 62 && canWhiteCastleRightSide(from, piece, to)) {
+        isCastle = true;
+        whiteRightSideCastle();
         whiteTurn = !whiteTurn;
-        playStockFishMove = whiteTurn === false;
-        whiteDangerSqrs = [];
-        blackDangerSqrs = [];
+        playStockFishMove = true;
+        audio.playAudio(audio.sound.move);
+        return true;
+    }
+
+    if (piece === 'wK' && to === 58 && canWhiteCastleLeftSide(from, piece, to)) {
+        isCastle = true;
+        whiteLeftSideCastle();
+        whiteTurn = !whiteTurn;
+        playStockFishMove = true;
+        audio.playAudio(audio.sound.move);
+        return true;
+    }
+
+    if (piece === 'bK' && to === 6 && canBlackCastleRightSide(from, piece, to)) {
+        isCastle = true;
+        blackRightSideCastle();
+        whiteTurn = !whiteTurn;
+        playStockFishMove = false;
+        audio.playAudio(audio.sound.move);
+        return true;
+    }
+
+    if (piece === 'bK' && to === 2 && canBlackCastleLeftSide(from, piece, to)) {
+        isCastle = true;
+        blackLeftSideCastle();
+        whiteTurn = !whiteTurn;
+        playStockFishMove = false;
         audio.playAudio(audio.sound.move);
         return true;
     }
@@ -140,8 +127,9 @@ function mobileMakeMove(from, to, piece) {
     const legalMoves = getPossibleMoves(piece, from) || [];
     if (!legalMoves.includes(to)) return false;
 
-    const captured = board.boardArr[to] !== 0;
+    const capturedPiece = board.boardArr[to] !== 0 ? board.boardArr[to] : 0;
 
+    // This is the same board update used by controls.js.
     board.boardArr[to] = piece;
     board.boardArr[from] = 0;
 
@@ -150,14 +138,8 @@ function mobileMakeMove(from, to, piece) {
     fullMoveCount = roundToWhole(halfMoveCount / 2);
     playStockFishMove = whiteTurn === false;
 
-    if (piece[1] === 'P') {
+    if (board.boardArr[to][1] === 'P') {
         pawnsThatHaveMovedPastOnce.push(to);
-
-        // Automatic queen promotion for the mobile version.
-        const row = Math.floor(to / 8);
-        if ((piece[0] === 'w' && row === 0) || (piece[0] === 'b' && row === 7)) {
-            board.boardArr[to] = piece[0] + 'Q';
-        }
     }
 
     checkWhiteRightCastleLegality(from, piece);
@@ -165,13 +147,42 @@ function mobileMakeMove(from, to, piece) {
     checkBlackRightCastleLegality(from, piece);
     checkBlackLeftCastleLegality(from, piece);
 
-    whiteDangerSqrs = [];
-    blackDangerSqrs = [];
     findWhiteDangerSqrs();
     findBlackDangerSqrs();
 
+    // Exactly like controls.js: undo a move that leaves your own king in check.
+    if (whiteTurn === false) {
+        if (getPossibleMoves(piece, to).includes(board.boardArr.indexOf('bK'))) {
+            isCheck = true;
+        } else {
+            isCheck = false;
+        }
+
+        if (whiteDangerSqrs.includes(board.boardArr.indexOf('wK'))) {
+            board.boardArr[from] = piece;
+            board.boardArr[to] = capturedPiece;
+            whiteTurn = piece[0] === 'w';
+            halfMoveCount--;
+            fullMoveCount = roundToWhole(halfMoveCount / 2);
+            playStockFishMove = false;
+            return false;
+        }
+    } else {
+        playStockFishMove = false;
+
+        if (blackDangerSqrs.includes(board.boardArr.indexOf('bK'))) {
+            board.boardArr[from] = piece;
+            board.boardArr[to] = capturedPiece;
+            whiteTurn = piece[0] === 'w';
+            halfMoveCount--;
+            fullMoveCount = roundToWhole(halfMoveCount / 2);
+            playStockFishMove = false;
+            return false;
+        }
+    }
+
     if (isCheck === false) {
-        audio.playAudio(captured ? audio.sound.capture : audio.sound.move);
+        audio.playAudio(capturedPiece ? audio.sound.capture : audio.sound.move);
     } else {
         audio.playAudio(audio.sound.check);
     }
@@ -191,7 +202,7 @@ function setupMobileControls() {
 
         const piece = board.boardArr[index];
 
-        // First tap: select a piece. The board itself is never modified.
+        // First tap: select. The board is not modified.
         if (mobileSelectedIndex === null) {
             if (mobileIsOwnPiece(piece)) {
                 mobileSelectedIndex = index;
@@ -201,7 +212,7 @@ function setupMobileControls() {
             return;
         }
 
-        // Tap another own piece: simply switch the selection.
+        // Tap another own piece: switch selection.
         if (mobileIsOwnPiece(piece)) {
             mobileSelectedIndex = index;
             mobileSelectedPiece = piece;
@@ -209,7 +220,6 @@ function setupMobileControls() {
             return;
         }
 
-        // Second tap: attempt the selected move.
         const from = mobileSelectedIndex;
         const movingPiece = mobileSelectedPiece;
         const legalMoves = mobileAllMoves(movingPiece, from);
