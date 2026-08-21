@@ -10,30 +10,15 @@ let draggedPiece = null;
 let capturedPiece = 0;
 let isStoreSqr = true;
 
-// Mobile: tap a piece first, then tap its destination.
-let mobileTapSelected = false;
-
-function resetMobileSelection(restorePiece = true) {
-    if (restorePiece && mobileTapSelected && draggedPiece !== null && prevSqrIndex !== null) {
-        board.boardArr[prevSqrIndex] = draggedPiece;
-    }
-
-    draggedPiece = null;
-    possibleSqres = [];
-    capturedPiece = 0;
-    prevSqrIndex = null;
-    mobileTapSelected = false;
-}
-
 sprite.onload = () => {
     board.init();
     update();
     drawBoard();
 
-    // Prevent Safari scrolling/zooming while touching the chessboard.
-    cvs.style.touchAction = 'none';
-
     document.addEventListener('pointerdown', (e) => {
+        // Touch devices are handled exclusively by mobile.js.
+        if (e.pointerType === 'touch') return;
+
         const rect = cvs.getBoundingClientRect();
         const scaleX = cvs.width / rect.width;
         const scaleY = cvs.height / rect.height;
@@ -41,82 +26,6 @@ sprite.onload = () => {
         const mouseY = (e.clientY - rect.top) * scaleY;
         const boardIndex = getBoardIndex(mouseX, mouseY);
 
-        // MOBILE: piece tap -> destination tap.
-        if (e.pointerType === 'touch') {
-            e.preventDefault();
-
-            const sqr = board.boardArr[boardIndex];
-
-            // A piece is already selected: this tap is the destination.
-            if (mobileTapSelected && draggedPiece !== null) {
-                if (possibleSqres.includes(boardIndex)) {
-                    // Put the piece back temporarily so the existing move
-                    // handling can process the destination normally.
-                    board.boardArr[prevSqrIndex] = 0;
-                    mobileTapSelected = false;
-                    isDown = false;
-                    isUp = true;
-
-                    const moveEvent = new PointerEvent('pointerup', {
-                        bubbles: true,
-                        pointerType: 'touch',
-                        clientX: e.clientX,
-                        clientY: e.clientY
-                    });
-                    document.dispatchEvent(moveEvent);
-                    return;
-                }
-
-                // Tapping another own piece changes the selection.
-                if (
-                    sqr !== 0 &&
-                    ((whiteTurn && sqr.startsWith('w')) || (!whiteTurn && sqr.startsWith('b')))
-                ) {
-                    resetMobileSelection(true);
-                    draggedPiece = sqr;
-                    prevSqrIndex = boardIndex;
-                    capturedPiece = 0;
-                    isStoreSqr = false;
-                    possibleSqres = getPossibleMoves(sqr, boardIndex);
-                    mobileTapSelected = true;
-                    board.boardArr[boardIndex] = 0;
-                    highlight(possibleSqres);
-                    update();
-                    drawBoard();
-                    return;
-                }
-
-                // Invalid destination: cancel the selection.
-                resetMobileSelection(true);
-                update();
-                drawBoard();
-                return;
-            }
-
-            // First tap: select a piece belonging to the side to move.
-            if (
-                sqr !== 0 &&
-                ((whiteTurn && sqr.startsWith('w')) || (!whiteTurn && sqr.startsWith('b')))
-            ) {
-                draggedPiece = sqr;
-                prevSqrIndex = boardIndex;
-                capturedPiece = 0;
-                isStoreSqr = false;
-                possibleSqres = getPossibleMoves(sqr, boardIndex);
-                mobileTapSelected = true;
-
-                // Temporarily remove the selected piece while choosing its target.
-                board.boardArr[boardIndex] = 0;
-
-                highlight(possibleSqres);
-                update();
-                drawBoard();
-            }
-
-            return;
-        }
-
-        // DESKTOP: keep drag-and-drop.
         isDown = true;
         isUp = false;
 
@@ -138,10 +47,7 @@ sprite.onload = () => {
     });
 
     document.addEventListener('pointermove', (e) => {
-        if (e.pointerType === 'touch') {
-            e.preventDefault();
-            return;
-        }
+        if (e.pointerType === 'touch') return;
 
         ctx.clearRect(0, 0, cvs.width, cvs.height);
         update();
@@ -161,12 +67,7 @@ sprite.onload = () => {
     });
 
     document.addEventListener('pointerup', (e) => {
-        if (e.pointerType === 'touch') {
-            e.preventDefault();
-
-            // First mobile tap only selects the piece.
-            if (mobileTapSelected) return;
-        }
+        if (e.pointerType === 'touch') return;
 
         isDown = false;
         isUp = true;
@@ -192,7 +93,6 @@ sprite.onload = () => {
             possibleSqres = [];
             capturedPiece = 0;
             prevSqrIndex = null;
-            mobileTapSelected = false;
         }
 
         whiteDangerSqrs = [];
@@ -229,8 +129,7 @@ sprite.onload = () => {
             whiteTurn = !whiteTurn;
             playStockFishMove = false;
             audio.playAudio(audio.sound.move);
-        }
-        else if (draggedPiece !== null && possibleSqres.length > 0) {
+        } else if (draggedPiece !== null && possibleSqres.length > 0) {
             const isCapture = board.boardArr[boardIndex] !== 0;
 
             for (let i = 0; i < possibleSqres.length; i++) {
@@ -295,6 +194,7 @@ sprite.onload = () => {
     });
 
     document.addEventListener('pointercancel', (e) => {
+        if (e.pointerType === 'touch') return;
         if (draggedPiece !== null && prevSqrIndex !== null) {
             board.boardArr[prevSqrIndex] = draggedPiece;
         }
@@ -304,7 +204,6 @@ sprite.onload = () => {
         possibleSqres = [];
         capturedPiece = 0;
         prevSqrIndex = null;
-        mobileTapSelected = false;
         update();
         drawBoard();
     });
