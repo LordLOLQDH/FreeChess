@@ -10,6 +10,9 @@ let draggedPiece = null;
 let capturedPiece = 0;
 let isStoreSqr = true;
 
+// Mobile tap-to-move state.
+let mobileTapSelected = false;
+
 sprite.onload = () => {
     board.init();
     update();
@@ -19,7 +22,47 @@ sprite.onload = () => {
     cvs.style.touchAction = 'none';
 
     document.addEventListener('pointerdown', (e) => {
-        if (e.pointerType === 'touch') e.preventDefault();
+        if (e.pointerType === 'touch') {
+            e.preventDefault();
+
+            const rect = cvs.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const boardIndex = getBoardIndex(mouseX, mouseY);
+
+            // On phones/tablets: first tap selects a piece, second tap selects
+            // the destination. A normal drag is still supported as well.
+            if (mobileTapSelected && draggedPiece !== null) {
+                mobileTapSelected = false;
+                document.dispatchEvent(new PointerEvent('pointerup', {
+                    bubbles: true,
+                    pointerType: 'touch',
+                    clientX: e.clientX,
+                    clientY: e.clientY
+                }));
+                return;
+            }
+
+            const sqr = board.boardArr[boardIndex];
+
+            if (
+                sqr !== 0 &&
+                ((whiteTurn && sqr.startsWith('w')) || (!whiteTurn && sqr.startsWith('b')))
+            ) {
+                board.boardArr[boardIndex] = 0;
+                draggedPiece = sqr;
+                prevSqrIndex = boardIndex;
+                isStoreSqr = false;
+                possibleSqres = getPossibleMoves(sqr, boardIndex);
+                mobileTapSelected = true;
+                highlight(possibleSqres);
+                update();
+                drawBoard();
+            }
+
+            return;
+        }
+
         isDown = true;
         isUp = false;
 
@@ -43,10 +86,13 @@ sprite.onload = () => {
 
         update();
         drawBoard();
-    }, { passive: false });
+    });
 
     document.addEventListener('pointermove', (e) => {
-        if (e.pointerType === 'touch') e.preventDefault();
+        if (e.pointerType === 'touch') {
+            e.preventDefault();
+            return;
+        }
 
         ctx.clearRect(0, 0, cvs.width, cvs.height);
         update();
@@ -61,10 +107,18 @@ sprite.onload = () => {
                 y: mouseY - pieces.pieceScale / 2
             }]);
         }
-    }, { passive: false });
+    });
 
     document.addEventListener('pointerup', (e) => {
-        if (e.pointerType === 'touch') e.preventDefault();
+        if (e.pointerType === 'touch') {
+            e.preventDefault();
+
+            // The real finger-up after the first tap must not cancel the
+            // selected piece. The second tap creates a synthetic pointerup.
+            if (mobileTapSelected) {
+                return;
+            }
+        }
 
         isDown = false;
         isUp = true;
@@ -88,6 +142,7 @@ sprite.onload = () => {
             possibleSqres = [];
             capturedPiece = 0;
             prevSqrIndex = null;
+            mobileTapSelected = false;
         }
 
         whiteDangerSqrs = [];
@@ -186,9 +241,10 @@ sprite.onload = () => {
         }
 
         update();
-    }, { passive: false });
+        drawBoard();
+    });
 
-    document.addEventListener('pointercancel', () => {
+    document.addEventListener('pointercancel', (e) => {
         if (draggedPiece !== null && prevSqrIndex !== null) {
             board.boardArr[prevSqrIndex] = draggedPiece;
         }
@@ -198,6 +254,7 @@ sprite.onload = () => {
         possibleSqres = [];
         capturedPiece = 0;
         prevSqrIndex = null;
+        mobileTapSelected = false;
         update();
         drawBoard();
     });
