@@ -22,13 +22,78 @@ function mobileBoardIndexFromEvent(e) {
     return getBoardIndex(x, y);
 }
 
+// Castling is a special king move and is not included by getPossibleMoves().
+// Handle it explicitly for the tap-to-move controls.
+function mobileCastleSquares(piece, from) {
+    if (piece === 'wK' && from === 60 && whiteTurn) {
+        const squares = [];
+        if (
+            isWhiteRightCastleLegal &&
+            board.boardArr[63] === 'wR' &&
+            board.boardArr[61] === 0 &&
+            board.boardArr[62] === 0 &&
+            !whiteDangerSqrs.includes(60) &&
+            !whiteDangerSqrs.includes(61) &&
+            !whiteDangerSqrs.includes(62)
+        ) squares.push(62);
+
+        if (
+            isWhiteLeftCastleLegal &&
+            board.boardArr[56] === 'wR' &&
+            board.boardArr[59] === 0 &&
+            board.boardArr[58] === 0 &&
+            board.boardArr[57] === 0 &&
+            !whiteDangerSqrs.includes(60) &&
+            !whiteDangerSqrs.includes(59) &&
+            !whiteDangerSqrs.includes(58)
+        ) squares.push(58);
+
+        return squares;
+    }
+
+    if (piece === 'bK' && from === 4 && !whiteTurn) {
+        const squares = [];
+        if (
+            isBlackRightCastleLegal &&
+            board.boardArr[7] === 'bR' &&
+            board.boardArr[5] === 0 &&
+            board.boardArr[6] === 0 &&
+            !blackDangerSqrs.includes(4) &&
+            !blackDangerSqrs.includes(5) &&
+            !blackDangerSqrs.includes(6)
+        ) squares.push(6);
+
+        if (
+            isBlackLeftCastleLegal &&
+            board.boardArr[0] === 'bR' &&
+            board.boardArr[3] === 0 &&
+            board.boardArr[2] === 0 &&
+            board.boardArr[1] === 0 &&
+            !blackDangerSqrs.includes(4) &&
+            !blackDangerSqrs.includes(3) &&
+            !blackDangerSqrs.includes(2)
+        ) squares.push(2);
+
+        return squares;
+    }
+
+    return [];
+}
+
+function mobileAllMoves(piece, from) {
+    return [
+        ...(getPossibleMoves(piece, from) || []),
+        ...mobileCastleSquares(piece, from)
+    ];
+}
+
 function mobileShowSelection() {
     ctx.clearRect(0, 0, cvs.width, cvs.height);
     update();
 
     if (mobileSelectedIndex === null || mobileSelectedPiece === null) return;
 
-    const moves = getPossibleMoves(mobileSelectedPiece, mobileSelectedIndex) || [];
+    const moves = mobileAllMoves(mobileSelectedPiece, mobileSelectedIndex);
 
     for (const index of moves) {
         const row = Math.floor(index / 8);
@@ -47,34 +112,27 @@ function mobileShowSelection() {
 function mobileMakeMove(from, to, piece) {
     if (!piece || from === null || to === null) return false;
 
-    if (canWhiteCastleRightSide(from, piece, to)) {
-        whiteRightSideCastle();
-        whiteTurn = false;
-        playStockFishMove = true;
-        audio.playAudio(audio.sound.move);
-        return true;
-    }
+    // Castling: king and rook are moved together.
+    const castleSquares = mobileCastleSquares(piece, from);
+    if (castleSquares.includes(to)) {
+        if (piece === 'wK' && to === 62) {
+            whiteRightSideCastle();
+        } else if (piece === 'wK' && to === 58) {
+            whiteLeftSideCastle();
+        } else if (piece === 'bK' && to === 6) {
+            blackRightSideCastle();
+        } else if (piece === 'bK' && to === 2) {
+            blackLeftSideCastle();
+        } else {
+            return false;
+        }
 
-    if (canWhiteCastleLeftSide(from, piece, to)) {
-        whiteLeftSideCastle();
-        whiteTurn = false;
-        playStockFishMove = true;
-        audio.playAudio(audio.sound.move);
-        return true;
-    }
-
-    if (canBlackCastleRightSide(from, piece, to)) {
-        blackRightSideCastle();
-        whiteTurn = true;
-        playStockFishMove = false;
-        audio.playAudio(audio.sound.move);
-        return true;
-    }
-
-    if (canBlackCastleLeftSide(from, piece, to)) {
-        blackLeftSideCastle();
-        whiteTurn = true;
-        playStockFishMove = false;
+        halfMoveCount++;
+        fullMoveCount = roundToWhole(halfMoveCount / 2);
+        whiteTurn = !whiteTurn;
+        playStockFishMove = whiteTurn === false;
+        whiteDangerSqrs = [];
+        blackDangerSqrs = [];
         audio.playAudio(audio.sound.move);
         return true;
     }
@@ -94,6 +152,12 @@ function mobileMakeMove(from, to, piece) {
 
     if (piece[1] === 'P') {
         pawnsThatHaveMovedPastOnce.push(to);
+
+        // Automatic queen promotion for the mobile version.
+        const row = Math.floor(to / 8);
+        if ((piece[0] === 'w' && row === 0) || (piece[0] === 'b' && row === 7)) {
+            board.boardArr[to] = piece[0] + 'Q';
+        }
     }
 
     checkWhiteRightCastleLegality(from, piece);
@@ -138,7 +202,6 @@ function setupMobileControls() {
         }
 
         // Tap another own piece: simply switch the selection.
-        // This is intentionally handled before destination logic.
         if (mobileIsOwnPiece(piece)) {
             mobileSelectedIndex = index;
             mobileSelectedPiece = piece;
@@ -149,13 +212,9 @@ function setupMobileControls() {
         // Second tap: attempt the selected move.
         const from = mobileSelectedIndex;
         const movingPiece = mobileSelectedPiece;
-        const legalMoves = getPossibleMoves(movingPiece, from) || [];
+        const legalMoves = mobileAllMoves(movingPiece, from);
 
-        if (legalMoves.includes(index) ||
-            canWhiteCastleRightSide(from, movingPiece, index) ||
-            canWhiteCastleLeftSide(from, movingPiece, index) ||
-            canBlackCastleRightSide(from, movingPiece, index) ||
-            canBlackCastleLeftSide(from, movingPiece, index)) {
+        if (legalMoves.includes(index)) {
             mobileMakeMove(from, index, movingPiece);
         }
 
