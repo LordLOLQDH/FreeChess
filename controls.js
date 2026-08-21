@@ -13,46 +13,87 @@ let isStoreSqr = true;
 // Mobile: tap a piece first, then tap its destination.
 let mobileTapSelected = false;
 
+function resetMobileSelection(restorePiece = true) {
+    if (restorePiece && mobileTapSelected && draggedPiece !== null && prevSqrIndex !== null) {
+        board.boardArr[prevSqrIndex] = draggedPiece;
+    }
+
+    draggedPiece = null;
+    possibleSqres = [];
+    capturedPiece = 0;
+    prevSqrIndex = null;
+    mobileTapSelected = false;
+}
+
 sprite.onload = () => {
     board.init();
     update();
     drawBoard();
 
-    // Prevent Safari from scrolling/zooming the board while playing.
+    // Prevent Safari scrolling/zooming while touching the chessboard.
     cvs.style.touchAction = 'none';
 
     document.addEventListener('pointerdown', (e) => {
         const rect = cvs.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        const scaleX = cvs.width / rect.width;
+        const scaleY = cvs.height / rect.height;
+        const mouseX = (e.clientX - rect.left) * scaleX;
+        const mouseY = (e.clientY - rect.top) * scaleY;
         const boardIndex = getBoardIndex(mouseX, mouseY);
 
-        // PHONE / TABLET: tap -> tap
+        // MOBILE: piece tap -> destination tap.
         if (e.pointerType === 'touch') {
             e.preventDefault();
 
+            const sqr = board.boardArr[boardIndex];
+
             // A piece is already selected: this tap is the destination.
             if (mobileTapSelected && draggedPiece !== null) {
-                mobileTapSelected = false;
+                if (possibleSqres.includes(boardIndex)) {
+                    // Put the piece back temporarily so the existing move
+                    // handling can process the destination normally.
+                    board.boardArr[prevSqrIndex] = 0;
+                    mobileTapSelected = false;
+                    isDown = false;
+                    isUp = true;
 
-                // Reuse the normal move-validation code below.
-                isDown = false;
-                isUp = true;
+                    const moveEvent = new PointerEvent('pointerup', {
+                        bubbles: true,
+                        pointerType: 'touch',
+                        clientX: e.clientX,
+                        clientY: e.clientY
+                    });
+                    document.dispatchEvent(moveEvent);
+                    return;
+                }
 
-                const moveEvent = new PointerEvent('pointerup', {
-                    bubbles: true,
-                    pointerType: 'touch',
-                    clientX: e.clientX,
-                    clientY: e.clientY
-                });
+                // Tapping another own piece changes the selection.
+                if (
+                    sqr !== 0 &&
+                    ((whiteTurn && sqr.startsWith('w')) || (!whiteTurn && sqr.startsWith('b')))
+                ) {
+                    resetMobileSelection(true);
+                    draggedPiece = sqr;
+                    prevSqrIndex = boardIndex;
+                    capturedPiece = 0;
+                    isStoreSqr = false;
+                    possibleSqres = getPossibleMoves(sqr, boardIndex);
+                    mobileTapSelected = true;
+                    board.boardArr[boardIndex] = 0;
+                    highlight(possibleSqres);
+                    update();
+                    drawBoard();
+                    return;
+                }
 
-                document.dispatchEvent(moveEvent);
+                // Invalid destination: cancel the selection.
+                resetMobileSelection(true);
+                update();
+                drawBoard();
                 return;
             }
 
-            const sqr = board.boardArr[boardIndex];
-
-            // First tap: select a piece belonging to the player whose turn it is.
+            // First tap: select a piece belonging to the side to move.
             if (
                 sqr !== 0 &&
                 ((whiteTurn && sqr.startsWith('w')) || (!whiteTurn && sqr.startsWith('b')))
@@ -64,8 +105,7 @@ sprite.onload = () => {
                 possibleSqres = getPossibleMoves(sqr, boardIndex);
                 mobileTapSelected = true;
 
-                // Temporarily remove the piece so the existing board renderer
-                // can draw the highlighted destination squares cleanly.
+                // Temporarily remove the selected piece while choosing its target.
                 board.boardArr[boardIndex] = 0;
 
                 highlight(possibleSqres);
@@ -76,12 +116,12 @@ sprite.onload = () => {
             return;
         }
 
-        // DESKTOP: keep the existing drag-and-drop controls.
+        // DESKTOP: keep drag-and-drop.
         isDown = true;
         isUp = false;
 
         board.boardArr.forEach((sqr, i) => {
-            if (sqr !== 0 && i == boardIndex) {
+            if (sqr !== 0 && i === boardIndex) {
                 if ((whiteTurn && sqr.startsWith('w')) || (!whiteTurn && sqr.startsWith('b'))) {
                     board.boardArr[i] = 0;
                     draggedPiece = sqr;
@@ -107,8 +147,10 @@ sprite.onload = () => {
         update();
 
         const rect = cvs.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        const scaleX = cvs.width / rect.width;
+        const scaleY = cvs.height / rect.height;
+        const mouseX = (e.clientX - rect.left) * scaleX;
+        const mouseY = (e.clientY - rect.top) * scaleY;
 
         if (isDown && draggedPiece !== null) {
             pieces.drawPiece(pieces.type[draggedPiece], [{
@@ -122,7 +164,7 @@ sprite.onload = () => {
         if (e.pointerType === 'touch') {
             e.preventDefault();
 
-            // The first tap only selects the piece. Do not cancel it on finger-up.
+            // First mobile tap only selects the piece.
             if (mobileTapSelected) return;
         }
 
@@ -130,8 +172,10 @@ sprite.onload = () => {
         isUp = true;
 
         const rect = cvs.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        const scaleX = cvs.width / rect.width;
+        const scaleY = cvs.height / rect.height;
+        const mouseX = (e.clientX - rect.left) * scaleX;
+        const mouseY = (e.clientY - rect.top) * scaleY;
         const boardIndex = getBoardIndex(mouseX, mouseY);
 
         function reverseMovement() {
