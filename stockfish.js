@@ -1,81 +1,90 @@
-// this is a stockfish api. It reads the current position through a fen string and sends 
-// the best move for stockfish to play
+// Stockfish 18 via chess-api.com.
+// The previous stockfish.online endpoint could fail and trigger the
+// repeated "Something went wrong" popup.
+
 class Stockfish {
-    constructor() { }
-
-    async getBestMove(fen) {
-        const endpoint = `https://stockfish.online/api/s/v2.php?fen=${encodeURIComponent(fen)}&depth=${1}`;
-
-        return new Promise((resolve) => {
-            const xhr = new XMLHttpRequest();
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        const data = JSON.parse(xhr.responseText);
-                        if (data.mate == -1) {
-                            playerLost = true;
-                            playerWon = false;
-                        } else if (data.mate == 1) {
-                            playerWon = true;
-                            playerLost = false;
-                        } else if (data.mate == 0) {
-                            playerLost = false;
-                            playerWon = false;
-                            draw = true;
-                        }
-                        if (data.success) {
-                            resolve(data.bestmove);
-                        } else {
-                            console.error("Error:", data.data);
-                            resolve(null);
-                        }
-                    } else {
-                        console.error("Error fetching data:", xhr.statusText);
-                        resolve(null);
-                    }
-                }
-            };
-            xhr.open("GET", endpoint, true);
-            xhr.send();
-        });
+    constructor() {
+        this.busy = false;
     }
 
-    // extracts the best move itself from the string sent by the api
-    extractBestMove(moveString) { // "bestmove e4f3 ponder e2f3" => "e4f3"
-        const parts = moveString.split(" ");
-        for (let i = 0; i < parts.length; i++) {
-            if (parts[i] === "bestmove" && i + 1 < parts.length) {
-                return parts[i + 1];
+    async getBestMove(fen) {
+        if (this.busy) return null;
+        this.busy = true;
+
+        try {
+            const response = await fetch('https://chess-api.com/v1', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fen,
+                    depth: 10,
+                    variants: 1,
+                    maxThinkingTime: 500
+                })
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const data = await response.json();
+            if (!data || !data.move) {
+                throw new Error(data?.text || 'Keine gültige Engine-Antwort');
             }
+
+            if (data.mate === -1) {
+                playerLost = true;
+                playerWon = false;
+            } else if (data.mate === 1) {
+                playerWon = true;
+                playerLost = false;
+            } else if (data.mate === 0) {
+                playerLost = false;
+                playerWon = false;
+                draw = true;
+            }
+
+            return data.move;
+        } catch (error) {
+            console.error('Stockfish API Fehler:', error);
+            return null;
+        } finally {
+            this.busy = false;
         }
-        return null; // Return null if "bestmove" keyword is not found
+    }
+
+    extractBestMove(moveString) {
+        if (!moveString) return null;
+        return String(moveString).trim().split(/\s+/)[0] || null;
     }
 
     async playStockfishMove() {
         const fen = board.convertBoardToFEN();
-        const bestMove = await this.getBestMove(fen); // Get best move from Stockfish
-        if (bestMove) {
-            let extractedBestMove = this.extractBestMove(bestMove);
-            if(`${extractedBestMove[0]}${extractedBestMove[1]}` == `${extractedBestMove[2]}${extractedBestMove[3]}`) {
-                this.playStockfishMove();
-            }
-            board.applyMove(extractedBestMove); // Apply the best move to the board
-            setTimeout(() => {
-                update()
-                if (playerLost) {
-                    promptUser("Stockfish: You suck at chess lol... wanna play again?");
-                } else if (playerWon) {
-                    promptUser("Stockfish: There's no way in hell you just beat me!!");
-                } else if (draw) {
-                    promptUser("Drawing with Stockfish is just wild!!");
-                }
-            }, 300)
+        const bestMove = await this.getBestMove(fen);
 
-
-        } else {
-            console.error("No valid move received from Stockfish.");
-            promptUser("Something went wrong :( Please check your connection");
+        if (!bestMove) {
+            console.warn('Stockfish konnte für diese Stellung keinen Zug liefern.');
+            playStockFishMove = false;
+            return;
         }
+
+        const move = this.extractBestMove(bestMove);
+        if (!move || move.length < 4) {
+            console.warn('Ungültiger Stockfish-Zug:', bestMove);
+            playStockFishMove = false;
+            return;
+        }
+
+        board.applyMove(move);
+
+        setTimeout(() => {
+            update();
+
+            if (playerLost) {
+                promptUser('Stockfish: You suck at chess lol... wanna play again?');
+            } else if (playerWon) {
+                promptUser("Stockfish: There's no way in hell you just beat me!!");
+            } else if (draw) {
+                promptUser('Drawing with Stockfish is just wild!!');
+            }
+        }, 300);
     }
 }
-
