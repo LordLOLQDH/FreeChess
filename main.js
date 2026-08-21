@@ -10,9 +10,11 @@ cvs.height = boardScale;
 const resizeBoard = () => {
     if (!gameCont || !boardCont) return;
 
+    // Use the maximum board size that fits the viewport.
+    // On phones this makes the board essentially edge-to-edge.
     const size = Math.min(
-        window.innerWidth - 16,
-        window.innerHeight - 16,
+        window.innerWidth,
+        window.innerHeight,
         boardScale
     );
 
