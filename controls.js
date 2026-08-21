@@ -10,7 +10,7 @@ let draggedPiece = null;
 let capturedPiece = 0;
 let isStoreSqr = true;
 
-// Mobile tap-to-move state.
+// Mobile: tap a piece first, then tap its destination.
 let mobileTapSelected = false;
 
 sprite.onload = () => {
@@ -18,43 +18,56 @@ sprite.onload = () => {
     update();
     drawBoard();
 
-    // Pointer Events work with mouse, touch and Apple Pencil.
+    // Prevent Safari from scrolling/zooming the board while playing.
     cvs.style.touchAction = 'none';
 
     document.addEventListener('pointerdown', (e) => {
+        const rect = cvs.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const boardIndex = getBoardIndex(mouseX, mouseY);
+
+        // PHONE / TABLET: tap -> tap
         if (e.pointerType === 'touch') {
             e.preventDefault();
 
-            const rect = cvs.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            const boardIndex = getBoardIndex(mouseX, mouseY);
-
-            // On phones/tablets: first tap selects a piece, second tap selects
-            // the destination. A normal drag is still supported as well.
+            // A piece is already selected: this tap is the destination.
             if (mobileTapSelected && draggedPiece !== null) {
                 mobileTapSelected = false;
-                document.dispatchEvent(new PointerEvent('pointerup', {
+
+                // Reuse the normal move-validation code below.
+                isDown = false;
+                isUp = true;
+
+                const moveEvent = new PointerEvent('pointerup', {
                     bubbles: true,
                     pointerType: 'touch',
                     clientX: e.clientX,
                     clientY: e.clientY
-                }));
+                });
+
+                document.dispatchEvent(moveEvent);
                 return;
             }
 
             const sqr = board.boardArr[boardIndex];
 
+            // First tap: select a piece belonging to the player whose turn it is.
             if (
                 sqr !== 0 &&
                 ((whiteTurn && sqr.startsWith('w')) || (!whiteTurn && sqr.startsWith('b')))
             ) {
-                board.boardArr[boardIndex] = 0;
                 draggedPiece = sqr;
                 prevSqrIndex = boardIndex;
+                capturedPiece = 0;
                 isStoreSqr = false;
                 possibleSqres = getPossibleMoves(sqr, boardIndex);
                 mobileTapSelected = true;
+
+                // Temporarily remove the piece so the existing board renderer
+                // can draw the highlighted destination squares cleanly.
+                board.boardArr[boardIndex] = 0;
+
                 highlight(possibleSqres);
                 update();
                 drawBoard();
@@ -63,13 +76,9 @@ sprite.onload = () => {
             return;
         }
 
+        // DESKTOP: keep the existing drag-and-drop controls.
         isDown = true;
         isUp = false;
-
-        const rect = cvs.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        const boardIndex = getBoardIndex(mouseX, mouseY);
 
         board.boardArr.forEach((sqr, i) => {
             if (sqr !== 0 && i == boardIndex) {
@@ -113,11 +122,8 @@ sprite.onload = () => {
         if (e.pointerType === 'touch') {
             e.preventDefault();
 
-            // The real finger-up after the first tap must not cancel the
-            // selected piece. The second tap creates a synthetic pointerup.
-            if (mobileTapSelected) {
-                return;
-            }
+            // The first tap only selects the piece. Do not cancel it on finger-up.
+            if (mobileTapSelected) return;
         }
 
         isDown = false;
