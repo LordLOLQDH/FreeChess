@@ -29,32 +29,30 @@ let playerLost = false;
 let playerWon = false;
 let draw = false;
 
-// update() basically runs through the board array data in the board class
-// checks if their any 'non 0' values if there are, that means those squares arent empty
-// so it uses the getSqre function to get the square's details (co ordinates in px) and then draws the piece on that square
-// using the drawPiece method from the Pieces class 
-
+// Redraw the board from the current board state.
+// The canvas must be cleared first; otherwise old pieces remain visible
+// and make Stockfish moves appear duplicated or one move behind.
 const update = () => {
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+
     board.boardArr.forEach((sqr, i) => {
         if (sqr !== 0) {
-            let square = getSqre(i);
+            const square = getSqre(i);
             pieces.drawPiece(pieces.type[sqr], [{ x: square.x, y: square.y }]);
-            ctx.fillStyle = 'black';
         }
-    })
+    });
 
-    if(playStockFishMove) {
-        stockfishAi.playStockfishMove();
+    if (playStockFishMove) {
         playStockFishMove = false;
+        stockfishAi.playStockfishMove();
     }
-    
-}
+};
 
 const promptUser = (message) => {
     setTimeout(() => {
         audio.playAudio(audio.sound.notify);
         if (window.confirm(message)) {
             window.location.reload(); // Refresh the page
-        }  
+        }
     }, 1000);
-}
+};
