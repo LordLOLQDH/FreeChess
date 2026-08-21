@@ -4,63 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <style>
-        * {
-            box-sizing: border-box;
+        * { box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100%; margin: 0; padding: 0;
+            overflow: hidden; background-color: black;
+            overscroll-behavior: none; touch-action: none;
         }
-
-        html,
-        body {
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: black;
-            overscroll-behavior: none;
+        .game--cont {
+            width: 100%; height: 100dvh; min-height: 100dvh;
+            display: flex; justify-content: center; align-items: center;
+            position: relative; overflow: hidden;
+        }
+        .game {
+            width: min(480px, 100vw, 100dvh);
+            height: min(480px, 100vw, 100dvh);
+            position: relative; flex: 0 0 auto;
+        }
+        .game canvas {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%; display: block; z-index: 999;
             touch-action: none;
         }
-
-        .game--cont {
-            width: 100%;
-            height: 100dvh;
-            min-height: 100dvh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .game {
-            width: min(480px, calc(100vw - 16px), calc(100dvh - 16px));
-            height: min(480px, calc(100vw - 16px), calc(100dvh - 16px));
-            position: relative;
-            flex: 0 0 auto;
-        }
-
-        .game canvas {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            display: block;
-            z-index: 999;
-        }
-
         .board-cont {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 480px;
-            height: 480px;
-            transform-origin: top left;
-            z-index: 1;
-            pointer-events: none;
+            position: absolute; left: 0; top: 0;
+            width: 480px; height: 480px;
+            transform-origin: top left; z-index: 1; pointer-events: none;
         }
-
-        .board-cont div {
-            position: absolute;
-        }
+        .board-cont div { position: absolute; }
     </style>
     <title>FreeChess - by Adam Kraus</title>
 </head>
@@ -71,7 +41,6 @@
             <div class="board-cont"></div>
         </div>
     </div>
-
     <script src="general.js"></script>
     <script src="sound.js"></script>
     <script src="stockfish.js"></script>
@@ -79,6 +48,7 @@
     <script src="pieces.js"></script>
     <script src="utils.js"></script>
     <script src="main.js"></script>
+    <script src="mobile.js"></script>
     <script src="controls.js"></script>
 </body>
 </html>
