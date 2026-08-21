@@ -26,35 +26,36 @@ function mobileClearSelection() {
     update();
 }
 
+/*
+ * IMPORTANT:
+ * The original castle helpers use the ROOK square as their destination:
+ * white: king e1 -> rook h1/a1 (63/56)
+ * black: king e8 -> rook h8/a8 (7/0)
+ *
+ * The mobile UI is normal chess notation, so the player taps g1/c1/g8/c8.
+ * We translate those destinations here instead of changing the original
+ * chess rules.
+ */
 function mobileCastleMoves(piece, from) {
     if (piece === 'wK' && from === 60 && whiteTurn) {
         const moves = [];
-        try {
-            if (canWhiteCastleRightSide(from, piece, 62)) moves.push(62);
-            if (canWhiteCastleLeftSide(from, piece, 58)) moves.push(58);
-        } catch (e) {
-            console.warn('Weiße Rochade konnte nicht geprüft werden:', e);
-        }
+
+        if (canWhiteCastleRightSide(from, piece, 63)) moves.push(62); // e1 -> g1
+        if (canWhiteCastleLeftSide(from, piece, 56)) moves.push(58);  // e1 -> c1
+
         return moves;
     }
 
     if (piece === 'bK' && from === 4 && !whiteTurn) {
         const moves = [];
-        try {
-            if (canBlackCastleRightSide(from, piece, 6)) moves.push(6);
-            if (canBlackCastleLeftSide(from, piece, 2)) moves.push(2);
-        } catch (e) {
-            console.warn('Schwarze Rochade konnte nicht geprüft werden:', e);
-        }
+
+        if (canBlackCastleRightSide(from, piece, 7)) moves.push(6); // e8 -> g8
+        if (canBlackCastleLeftSide(from, piece, 0)) moves.push(2);  // e8 -> c8
+
         return moves;
     }
 
     return [];
-}
-
-function mobileAllMoves(piece, from) {
-    const normalMoves = getPossibleMoves(piece, from) || [];
-    return [...normalMoves, ...mobileCastleMoves(piece, from)];
 }
 
 function mobileShowSelection() {
@@ -63,7 +64,10 @@ function mobileShowSelection() {
 
     if (mobileSelectedIndex === null || mobileSelectedPiece === null) return;
 
-    const moves = mobileAllMoves(mobileSelectedPiece, mobileSelectedIndex);
+    const moves = [
+        ...(getPossibleMoves(mobileSelectedPiece, mobileSelectedIndex) || []),
+        ...mobileCastleMoves(mobileSelectedPiece, mobileSelectedIndex)
+    ];
 
     for (const index of moves) {
         const row = Math.floor(index / 8);
@@ -87,8 +91,9 @@ function mobileShowSelection() {
 function mobileMakeMove(from, to, piece) {
     if (!piece || from === null || to === null) return false;
 
-    // Use the exact same castling functions as the desktop controls.
-    if (piece === 'wK' && to === 62 && canWhiteCastleRightSide(from, piece, to)) {
+    // Mobile uses the actual king destination (g1/c1/g8/c8), while the
+    // existing castle helpers expect the rook destination (h1/a1/h8/a8).
+    if (piece === 'wK' && to === 62 && canWhiteCastleRightSide(from, piece, 63)) {
         isCastle = true;
         whiteRightSideCastle();
         whiteTurn = !whiteTurn;
@@ -97,7 +102,7 @@ function mobileMakeMove(from, to, piece) {
         return true;
     }
 
-    if (piece === 'wK' && to === 58 && canWhiteCastleLeftSide(from, piece, to)) {
+    if (piece === 'wK' && to === 58 && canWhiteCastleLeftSide(from, piece, 56)) {
         isCastle = true;
         whiteLeftSideCastle();
         whiteTurn = !whiteTurn;
@@ -106,7 +111,7 @@ function mobileMakeMove(from, to, piece) {
         return true;
     }
 
-    if (piece === 'bK' && to === 6 && canBlackCastleRightSide(from, piece, to)) {
+    if (piece === 'bK' && to === 6 && canBlackCastleRightSide(from, piece, 7)) {
         isCastle = true;
         blackRightSideCastle();
         whiteTurn = !whiteTurn;
@@ -115,7 +120,7 @@ function mobileMakeMove(from, to, piece) {
         return true;
     }
 
-    if (piece === 'bK' && to === 2 && canBlackCastleLeftSide(from, piece, to)) {
+    if (piece === 'bK' && to === 2 && canBlackCastleLeftSide(from, piece, 0)) {
         isCastle = true;
         blackLeftSideCastle();
         whiteTurn = !whiteTurn;
@@ -129,7 +134,6 @@ function mobileMakeMove(from, to, piece) {
 
     const capturedPiece = board.boardArr[to] !== 0 ? board.boardArr[to] : 0;
 
-    // This is the same board update used by controls.js.
     board.boardArr[to] = piece;
     board.boardArr[from] = 0;
 
@@ -150,7 +154,6 @@ function mobileMakeMove(from, to, piece) {
     findWhiteDangerSqrs();
     findBlackDangerSqrs();
 
-    // Exactly like controls.js: undo a move that leaves your own king in check.
     if (whiteTurn === false) {
         if (getPossibleMoves(piece, to).includes(board.boardArr.indexOf('bK'))) {
             isCheck = true;
@@ -202,7 +205,6 @@ function setupMobileControls() {
 
         const piece = board.boardArr[index];
 
-        // First tap: select. The board is not modified.
         if (mobileSelectedIndex === null) {
             if (mobileIsOwnPiece(piece)) {
                 mobileSelectedIndex = index;
@@ -212,7 +214,7 @@ function setupMobileControls() {
             return;
         }
 
-        // Tap another own piece: switch selection.
+        // Tapping another own piece switches selection.
         if (mobileIsOwnPiece(piece)) {
             mobileSelectedIndex = index;
             mobileSelectedPiece = piece;
@@ -222,7 +224,10 @@ function setupMobileControls() {
 
         const from = mobileSelectedIndex;
         const movingPiece = mobileSelectedPiece;
-        const legalMoves = mobileAllMoves(movingPiece, from);
+        const legalMoves = [
+            ...(getPossibleMoves(movingPiece, from) || []),
+            ...mobileCastleMoves(movingPiece, from)
+        ];
 
         if (legalMoves.includes(index)) {
             mobileMakeMove(from, index, movingPiece);
