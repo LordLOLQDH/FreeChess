@@ -2,40 +2,64 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
         body {
-            background-color: black;
+            width: 100%;
+            height: 100%;
             margin: 0;
             padding: 0;
+            overflow: hidden;
+            background-color: black;
+            overscroll-behavior: none;
+            touch-action: none;
         }
-        .board-cont {
-            position: relative;
-            top: -484px;
-        }
-        .board-cont div {
-            position: absolute;
-            /* animation: appear 1s ease-in-out 0s forwards; */
-        }
-        @keyframes appear {
-            from {
-               transform: scale(0);
-            } 
-            to {
-               transform: scale(1);
-            }
-        }
+
         .game--cont {
-            height: 100vh;
+            width: 100%;
+            height: 100dvh;
+            min-height: 100dvh;
             display: flex;
             justify-content: center;
             align-items: center;
             position: relative;
+            overflow: hidden;
+        }
+
+        .game {
+            width: min(480px, calc(100vw - 16px), calc(100dvh - 16px));
+            height: min(480px, calc(100vw - 16px), calc(100dvh - 16px));
+            position: relative;
+            flex: 0 0 auto;
         }
 
         .game canvas {
-            position: relative;
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
             z-index: 999;
+        }
+
+        .board-cont {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 480px;
+            height: 480px;
+            transform-origin: top left;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .board-cont div {
+            position: absolute;
         }
     </style>
     <title>chess</title>
@@ -47,7 +71,6 @@
             <div class="board-cont"></div>
         </div>
     </div>
-   
 
     <script src="general.js"></script>
     <script src="sound.js"></script>
@@ -55,7 +78,6 @@
     <script src="board.js"></script>
     <script src="pieces.js"></script>
     <script src="utils.js"></script>
-    
     <script src="main.js"></script>
     <script src="controls.js"></script>
 </body>
