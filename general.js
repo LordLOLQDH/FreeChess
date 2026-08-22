@@ -19,6 +19,7 @@ let isCheck = false;
 let playerLost = false;
 let playerWon = false;
 let draw = false;
+let stockfishRequestQueued = false;
 
 const update = () => {
     ctx.clearRect(0, 0, cvs.width, cvs.height);
@@ -30,13 +31,32 @@ const update = () => {
     });
 };
 
-// Stockfish is called explicitly after a completed human move. Rendering
-// must never start the engine, otherwise redraws can trigger duplicate moves.
+// There must be exactly one Stockfish request for every completed White move.
+// If another part of the UI asks while the engine is busy, remember the request
+// instead of silently dropping it. Rendering itself never starts the engine.
 const requestStockfishMove = () => {
-    if (typeof stockfishAi === 'undefined' || !stockfishAi) return;
-    if (!board || whiteTurn || stockfishAi.busy) return;
+    if (typeof stockfishAi === 'undefined' || !stockfishAi || !board) return;
+    if (whiteTurn) return;
+
+    if (stockfishAi.busy) {
+        stockfishRequestQueued = true;
+        return;
+    }
+
+    if (stockfishRequestQueued) stockfishRequestQueued = false;
     playStockFishMove = true;
-    stockfishAi.playStockfishMove();
+    stockfishAi.playStockfishMove().then(() => {
+        // If a duplicate UI event happened while the engine was thinking,
+        // service it only when it is still actually Black's turn.
+        if (stockfishRequestQueued && !whiteTurn && !stockfishAi.busy) {
+            stockfishRequestQueued = false;
+            setTimeout(requestStockfishMove, 0);
+        }
+    }).catch((error) => {
+        stockfishRequestQueued = false;
+        playStockFishMove = false;
+        console.error('Stockfish request failed:', error);
+    });
 };
 
 const promptUser = (message) => {
