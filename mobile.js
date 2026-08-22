@@ -1,9 +1,10 @@
 // Mobile controls: tap a piece, then tap its destination.
+// Black is AI-controlled and cannot be moved by the player.
 let mobileSelectedIndex = null;
 let mobileSelectedPiece = null;
 
 function mobileIsOwnPiece(piece) {
-    return piece !== 0 && ((whiteTurn && piece[0] === 'w') || (!whiteTurn && piece[0] === 'b'));
+    return piece !== 0 && whiteTurn && piece[0] === 'w';
 }
 
 function mobileBoardIndexFromEvent(e) {
@@ -24,12 +25,6 @@ function mobileCastleMoves(piece, from) {
         const moves = [];
         if (canWhiteCastleRightSide(from, piece, 63)) moves.push(62);
         if (canWhiteCastleLeftSide(from, piece, 56)) moves.push(58);
-        return moves;
-    }
-    if (piece === 'bK' && from === 4 && !whiteTurn) {
-        const moves = [];
-        if (canBlackCastleRightSide(from, piece, 7)) moves.push(6);
-        if (canBlackCastleLeftSide(from, piece, 0)) moves.push(2);
         return moves;
     }
     return [];
@@ -65,7 +60,8 @@ function mobileTriggerAIIfNeeded() {
 }
 
 function mobileMakeMove(from, to, piece) {
-    if (!piece || from === null || to === null) return false;
+    // Only White can ever be moved by the player.
+    if (!piece || piece[0] !== 'w' || !whiteTurn || from === null || to === null) return false;
 
     if (piece === 'wK' && to === 62 && canWhiteCastleRightSide(from, piece, 63)) {
         isCastle = true;
@@ -85,22 +81,6 @@ function mobileMakeMove(from, to, piece) {
         mobileTriggerAIIfNeeded();
         return true;
     }
-    if (piece === 'bK' && to === 6 && canBlackCastleRightSide(from, piece, 7)) {
-        isCastle = true;
-        blackRightSideCastle();
-        whiteTurn = true;
-        playStockFishMove = false;
-        audio.playAudio(audio.sound.move);
-        return true;
-    }
-    if (piece === 'bK' && to === 2 && canBlackCastleLeftSide(from, piece, 0)) {
-        isCastle = true;
-        blackLeftSideCastle();
-        whiteTurn = true;
-        playStockFishMove = false;
-        audio.playAudio(audio.sound.move);
-        return true;
-    }
 
     const legalMoves = getPossibleMoves(piece, from) || [];
     if (!legalMoves.includes(to)) return false;
@@ -109,7 +89,7 @@ function mobileMakeMove(from, to, piece) {
     board.boardArr[to] = piece;
     board.boardArr[from] = 0;
 
-    whiteTurn = !whiteTurn;
+    whiteTurn = false;
     halfMoveCount++;
     fullMoveCount = roundToWhole(halfMoveCount / 2);
 
@@ -117,39 +97,24 @@ function mobileMakeMove(from, to, piece) {
 
     checkWhiteRightCastleLegality(from, piece);
     checkWhiteLeftCastleLegality(from, piece);
-    checkBlackRightCastleLegality(from, piece);
-    checkBlackLeftCastleLegality(from, piece);
     findWhiteDangerSqrs();
     findBlackDangerSqrs();
 
-    if (!whiteTurn) {
-        isCheck = getPossibleMoves(piece, to).includes(board.boardArr.indexOf('bK'));
-        if (whiteDangerSqrs.includes(board.boardArr.indexOf('wK'))) {
-            board.boardArr[from] = piece;
-            board.boardArr[to] = capturedPiece;
-            whiteTurn = true;
-            halfMoveCount--;
-            fullMoveCount = roundToWhole(halfMoveCount / 2);
-            return false;
-        }
-    } else {
-        if (blackDangerSqrs.includes(board.boardArr.indexOf('bK'))) {
-            board.boardArr[from] = piece;
-            board.boardArr[to] = capturedPiece;
-            whiteTurn = false;
-            halfMoveCount--;
-            fullMoveCount = roundToWhole(halfMoveCount / 2);
-            return false;
-        }
-        isCheck = false;
+    isCheck = getPossibleMoves(piece, to).includes(board.boardArr.indexOf('bK'));
+    if (whiteDangerSqrs.includes(board.boardArr.indexOf('wK'))) {
+        board.boardArr[from] = piece;
+        board.boardArr[to] = capturedPiece;
+        whiteTurn = true;
+        halfMoveCount--;
+        fullMoveCount = roundToWhole(halfMoveCount / 2);
+        return false;
     }
 
     if (isCheck) audio.playAudio(audio.sound.check);
     else audio.playAudio(capturedPiece ? audio.sound.capture : audio.sound.move);
 
-    // The human side is White in the current game. Once White has moved,
-    // immediately and exactly once ask Stockfish for Black's response.
-    if (!whiteTurn) mobileTriggerAIIfNeeded();
+    // Exactly one request is made after every legal White move.
+    mobileTriggerAIIfNeeded();
     return true;
 }
 
@@ -158,6 +123,12 @@ function setupMobileControls() {
         if (e.pointerType !== 'touch') return;
         e.preventDefault();
         e.stopPropagation();
+
+        // Never allow interaction while Black/Stockfish is to move.
+        if (!whiteTurn) {
+            mobileClearSelection();
+            return;
+        }
 
         const index = mobileBoardIndexFromEvent(e);
         if (index < 0 || index >= 64) return;
