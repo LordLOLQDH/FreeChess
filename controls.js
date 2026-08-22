@@ -1,4 +1,5 @@
 // Desktop drag controls. Touch input is handled by mobile.js.
+// Black is AI-controlled and cannot be moved by the player.
 const stockfishAi = new Stockfish();
 let isDrag = false;
 let isDown = false;
@@ -23,14 +24,20 @@ sprite.onload = () => {
         isDown = true;
         isUp = false;
 
+        // The human can only select White pieces.
         const sqr = board.boardArr[boardIndex];
-        if (sqr !== 0 && ((whiteTurn && sqr.startsWith('w')) || (!whiteTurn && sqr.startsWith('b')))) {
+        if (whiteTurn && sqr !== 0 && sqr.startsWith('w')) {
             board.boardArr[boardIndex] = 0;
             draggedPiece = sqr;
             prevSqrIndex = boardIndex;
             isStoreSqr = false;
             possibleSqres = getPossibleMoves(sqr, boardIndex);
             highlight(possibleSqres);
+        } else {
+            isDown = false;
+            isUp = true;
+            draggedPiece = null;
+            possibleSqres = [];
         }
         update();
         drawBoard();
@@ -65,7 +72,7 @@ sprite.onload = () => {
         const reverseMovement = () => {
             board.boardArr[prevSqrIndex] = draggedPiece;
             board.boardArr[boardIndex] = capturedPiece;
-            whiteTurn = draggedPiece[0] === 'w';
+            whiteTurn = true;
             halfMoveCount--;
             fullMoveCount = roundToWhole(halfMoveCount / 2);
             playStockFishMove = false;
@@ -94,42 +101,24 @@ sprite.onload = () => {
             whiteTurn = false;
             audio.playAudio(audio.sound.move);
             requestStockfishMove();
-        } else if (canBlackCastleRightSide(prevSqrIndex, draggedPiece, boardIndex)) {
-            isCastle = true;
-            blackRightSideCastle();
-            resetMovement();
-            whiteTurn = true;
-            audio.playAudio(audio.sound.move);
-        } else if (canBlackCastleLeftSide(prevSqrIndex, draggedPiece, boardIndex)) {
-            isCastle = true;
-            blackLeftSideCastle();
-            resetMovement();
-            whiteTurn = true;
-            audio.playAudio(audio.sound.move);
         } else if (draggedPiece !== null && possibleSqres.length > 0) {
             const isCapture = board.boardArr[boardIndex] !== 0;
             if (possibleSqres.includes(boardIndex)) {
                 capturedPiece = board.boardArr[boardIndex] !== 0 ? board.boardArr[boardIndex] : 0;
                 board.boardArr[boardIndex] = draggedPiece;
                 board.boardArr[prevSqrIndex] = 0;
-                whiteTurn = !whiteTurn;
+                whiteTurn = false;
                 halfMoveCount++;
                 fullMoveCount = roundToWhole(halfMoveCount / 2);
 
                 if (board.boardArr[boardIndex][1] === 'P') pawnsThatHaveMovedPastOnce.push(boardIndex);
                 checkWhiteRightCastleLegality(prevSqrIndex, draggedPiece);
                 checkWhiteLeftCastleLegality(prevSqrIndex, draggedPiece);
-                checkBlackRightCastleLegality(prevSqrIndex, draggedPiece);
-                checkBlackLeftCastleLegality(prevSqrIndex, draggedPiece);
                 findWhiteDangerSqrs();
                 findBlackDangerSqrs();
 
-                if (!whiteTurn) {
-                    isCheck = getPossibleMoves(draggedPiece, boardIndex).includes(board.boardArr.indexOf('bK'));
-                    if (whiteDangerSqrs.includes(board.boardArr.indexOf('wK'))) reverseMovement();
-                } else if (blackDangerSqrs.includes(board.boardArr.indexOf('bK'))) {
-                    reverseMovement();
-                }
+                isCheck = getPossibleMoves(draggedPiece, boardIndex).includes(board.boardArr.indexOf('bK'));
+                if (whiteDangerSqrs.includes(board.boardArr.indexOf('wK'))) reverseMovement();
 
                 if (isCheck) audio.playAudio(audio.sound.check);
                 else audio.playAudio(isCapture ? audio.sound.capture : audio.sound.move);
