@@ -20,6 +20,7 @@ let playerLost = false;
 let playerWon = false;
 let draw = false;
 let stockfishRequestQueued = false;
+let stockfishRetryTimer = null;
 
 const update = () => {
     ctx.clearRect(0, 0, cvs.width, cvs.height);
@@ -31,31 +32,51 @@ const update = () => {
     });
 };
 
-// There must be exactly one Stockfish request for every completed White move.
-// If another part of the UI asks while the engine is busy, remember the request
-// instead of silently dropping it. Rendering itself never starts the engine.
+// Ask Stockfish for Black's move. A failed/empty first response is retried
+// automatically while it is still Black's turn, so the first AI reply cannot
+// silently disappear.
 const requestStockfishMove = () => {
     if (typeof stockfishAi === 'undefined' || !stockfishAi || !board) return;
     if (whiteTurn) return;
+
+    if (stockfishRetryTimer) {
+        clearTimeout(stockfishRetryTimer);
+        stockfishRetryTimer = null;
+    }
 
     if (stockfishAi.busy) {
         stockfishRequestQueued = true;
         return;
     }
 
-    if (stockfishRequestQueued) stockfishRequestQueued = false;
+    stockfishRequestQueued = false;
     playStockFishMove = true;
-    stockfishAi.playStockfishMove().then(() => {
-        // If a duplicate UI event happened while the engine was thinking,
-        // service it only when it is still actually Black's turn.
+
+    stockfishAi.playStockfishMove().then((played) => {
+        // If the engine/API did not produce a move, do not leave the game
+        // permanently waiting. Retry while the position is still Black's turn.
+        if (!played && !whiteTurn) {
+            playStockFishMove = false;
+            stockfishRetryTimer = setTimeout(() => {
+                stockfishRetryTimer = null;
+                requestStockfishMove();
+            }, 250);
+            return;
+        }
+
         if (stockfishRequestQueued && !whiteTurn && !stockfishAi.busy) {
             stockfishRequestQueued = false;
             setTimeout(requestStockfishMove, 0);
         }
     }).catch((error) => {
-        stockfishRequestQueued = false;
         playStockFishMove = false;
         console.error('Stockfish request failed:', error);
+        if (!whiteTurn) {
+            stockfishRetryTimer = setTimeout(() => {
+                stockfishRetryTimer = null;
+                requestStockfishMove();
+            }, 250);
+        }
     });
 };
 
