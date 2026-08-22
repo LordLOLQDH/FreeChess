@@ -10,16 +10,22 @@ cvs.height = boardScale;
 const resizeBoard = () => {
     if (!gameCont || !boardCont) return;
 
-    // Use the maximum board size that fits the viewport.
-    // On phones this makes the board essentially edge-to-edge.
+    // The chessboard should always use the full available width.
+    // Do not limit it to the old 480px desktop size.
+    const viewportWidth = window.visualViewport?.width || window.innerWidth;
+    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+
+    // Portrait: use the complete screen width.
+    // Landscape: use the largest square that actually fits vertically.
     const size = Math.min(
-        window.innerWidth,
-        window.innerHeight,
-        boardScale
+        viewportWidth,
+        viewportWidth > viewportHeight ? viewportHeight : viewportWidth
     );
 
     gameCont.style.width = `${size}px`;
     gameCont.style.height = `${size}px`;
+    gameCont.style.maxWidth = 'none';
+    gameCont.style.maxHeight = 'none';
     boardCont.style.transform = `scale(${size / boardScale})`;
 };
 
@@ -46,3 +52,7 @@ window.addEventListener('resize', resizeBoard);
 window.addEventListener('orientationchange', () => {
     setTimeout(resizeBoard, 100);
 });
+
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', resizeBoard);
+}
