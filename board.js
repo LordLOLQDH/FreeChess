@@ -1,142 +1,86 @@
 class Board {
     constructor() {
-        this.boardArr = new Array(64).fill(0); // an array of 64, 0s
+        this.boardArr = new Array(64).fill(0);
+        this.pieceMap = { wP:'P',wR:'R',wN:'N',wB:'B',wQ:'Q',wK:'K',bP:'p',bR:'r',bN:'n',bB:'b',bQ:'q',bK:'k' };
         this.init();
-        this.pieceMap = {
-            'wP': 'P', 'wR': 'R', 'wN': 'N', 'wB': 'B', 'wQ': 'Q', 'wK': 'K',
-            'bP': 'p', 'bR': 'r', 'bN': 'n', 'bB': 'b', 'bQ': 'q', 'bK': 'k'
-        };
     }
 
-    // Assigning pieces to starting squares
     init() {
-        this.boardArr[0] = 'bR';
-        this.boardArr[1] = 'bN';
-        this.boardArr[2] = 'bB';
-        this.boardArr[3] = 'bQ';
-        this.boardArr[4] = 'bK';
-        this.boardArr[5] = 'bB';
-        this.boardArr[6] = 'bN';
-        this.boardArr[7] = 'bR';
-        this.boardArr[8] = 'bP';
-        this.boardArr[9] = 'bP';
-        this.boardArr[10] = 'bP';
-        this.boardArr[11] = 'bP';
-        this.boardArr[12] = 'bP';
-        this.boardArr[13] = 'bP';
-        this.boardArr[14] = 'bP';
-        this.boardArr[15] = 'bP';
-
-        this.boardArr[48] = 'wP';
-        this.boardArr[49] = 'wP';
-        this.boardArr[50] = 'wP';
-        this.boardArr[51] = 'wP';
-        this.boardArr[52] = 'wP';
-        this.boardArr[53] = 'wP';
-        this.boardArr[54] = 'wP';
-        this.boardArr[55] = 'wP';
-        this.boardArr[56] = 'wR';
-        this.boardArr[57] = 'wN';
-        this.boardArr[58] = 'wB';
-        this.boardArr[59] = 'wQ';
-        this.boardArr[60] = 'wK';
-        this.boardArr[61] = 'wB';
-        this.boardArr[62] = 'wN';
-        this.boardArr[63] = 'wR';
+        this.boardArr.fill(0);
+        const back = ['R','N','B','Q','K','B','N','R'];
+        for (let i=0;i<8;i++) {
+            this.boardArr[i]='b'+back[i];
+            this.boardArr[8+i]='bP';
+            this.boardArr[48+i]='wP';
+            this.boardArr[56+i]='w'+back[i];
+        }
     }
 
     convertBoardToFEN() {
-        let fenString = '';
-        for (let i = 0; i < 64; i += 8) {
-            let emptyCount = 0;
-            for (let j = 0; j < 8; j++) {
-                const piece = this.boardArr[i + j];
-                if (piece === 0) {
-                    emptyCount++;
-                } else {
-                    if (emptyCount > 0) {
-                        fenString += emptyCount;
-                        emptyCount = 0;
-                    }
-                    fenString += this.pieceMap[piece];
-                }
+        let fen='';
+        for (let i=0;i<64;i+=8) {
+            let empty=0;
+            for (let j=0;j<8;j++) {
+                const p=this.boardArr[i+j];
+                if (p===0) empty++;
+                else { if(empty){fen+=empty;empty=0;} fen+=this.pieceMap[p]; }
             }
-            if (emptyCount > 0) {
-                fenString += emptyCount;
-            }
-            if (i < 56) { // Add slash between ranks
-                fenString += '/';
-            }
+            if(empty) fen+=empty;
+            if(i<56) fen+='/';
         }
-        
-        let activeColor = whiteTurn ? 'w' : 'b'; 
-        let bCastleK = isBlackRightCastleLegal ?  'k' : '';
-        let bCastleQ = isBlackLeftCastleLegal ?  'q' : '';
-        let wCastleK = isWhiteRightCastleLegal ?  'K' : '';
-        let wCastleQ = isWhiteLeftCastleLegal ?  'Q' : '';
-
-        let castlingRights = `${wCastleK}${wCastleQ}${bCastleK}${bCastleQ}` ; // Both sides can castle both ways
-        let enPassantTarget = '-'; // No en passant target
-        let halfmoveClock = halfMoveCount; // No halfmoves since last capture or pawn move
-        let fullmoveNumber = fullMoveCount; // Starting move number
-
-        return `${fenString} ${activeColor} ${castlingRights} ${enPassantTarget} ${halfmoveClock} ${fullmoveNumber}`;
+        const active=whiteTurn?'w':'b';
+        const rights=`${isWhiteRightCastleLegal?'K':''}${isWhiteLeftCastleLegal?'Q':''}${isBlackRightCastleLegal?'k':''}${isBlackLeftCastleLegal?'q':''}`||'-';
+        return `${fen} ${active} ${rights} - ${halfMoveCount} ${fullMoveCount}`;
     }
 
     applyMove(move) {
-        const [from, to] = [move.substring(0, 2), move.substring(2, 4)];
-        const fromIndex = this.algebraicToIndex(from);
-        const toIndex = this.algebraicToIndex(to);
+        move=String(move||'').trim().split(/\s+/)[0];
+        if(move.length<4) return false;
+        const from=move.substring(0,2), to=move.substring(2,4);
+        const promotion=move.length>=5?move[4].toLowerCase():null;
+        const fromIndex=this.algebraicToIndex(from), toIndex=this.algebraicToIndex(to);
+        const piece=this.boardArr[fromIndex];
+        if(!piece){ console.error(`No piece found at ${from}`); return false; }
+        const captured=this.boardArr[toIndex]!==0;
 
-        const isCapture = this.boardArr[toIndex] == 0 ? false : true;
-
-        // Get piece being moved
-        
-        const piece = this.boardArr[fromIndex];
-        this.boardArr[fromIndex] = 0;
-        if (!piece) {
-            console.error(`No piece found at ${from}`);
-            return;
+        // UCI castling uses e1g1/e1c1/e8g8/e8c8.
+        if(piece==='wK'&&fromIndex===60&&toIndex===62) whiteRightSideCastle();
+        else if(piece==='wK'&&fromIndex===60&&toIndex===58) whiteLeftSideCastle();
+        else if(piece==='bK'&&fromIndex===4&&toIndex===6) blackRightSideCastle();
+        else if(piece==='bK'&&fromIndex===4&&toIndex===2) blackLeftSideCastle();
+        else {
+            this.boardArr[fromIndex]=0;
+            this.boardArr[toIndex]=piece;
+            if(promotion&&piece[1]==='P'&&['q','r','b','n'].includes(promotion)) this.boardArr[toIndex]=piece[0]+promotion.toUpperCase();
+            if(piece==='wK'){isWhiteRightCastleLegal=false;isWhiteLeftCastleLegal=false;}
+            if(piece==='bK'){isBlackRightCastleLegal=false;isBlackLeftCastleLegal=false;}
+            if(fromIndex===63||toIndex===63)isWhiteRightCastleLegal=false;
+            if(fromIndex===56||toIndex===56)isWhiteLeftCastleLegal=false;
+            if(fromIndex===7||toIndex===7)isBlackRightCastleLegal=false;
+            if(fromIndex===0||toIndex===0)isBlackLeftCastleLegal=false;
         }
 
-        // Update board
-       
-        this.boardArr[toIndex] = piece;
-        
+        if(piece[1]==='P'||captured) halfMoveCount=0; else halfMoveCount++;
+        if(!whiteTurn) fullMoveCount++;
+        whiteTurn=!whiteTurn;
+        playStockFishMove=false;
+        whiteDangerSqrs=[]; blackDangerSqrs=[];
+        findWhiteDangerSqrs(); findBlackDangerSqrs();
 
-        
-        // Increment move counts
-        if (whiteTurn) {
-            fullMoveCount++;
-        }
-        whiteTurn = !whiteTurn;
-
-        // find out if the move stockfish made is a check
-        if(whiteTurn) {
-            if(getPossibleMoves(piece, toIndex).includes(this.boardArr.indexOf('wK'))) {
-                if(isCheck == false) isCheck = true;
-            } else {
-                isCheck = false;
-            }
-        }
-        //
-
-        // play the right audios
-        if(isCheck == false) {
-            if (isCapture) audio.playAudio(audio.sound.capture);
-            else audio.playAudio(audio.sound.move);
-        } else {
-            audio.playAudio(audio.sound.check);
-        }
-
+        const enemyKing=whiteTurn?'wK':'bK';
+        const kingIndex=this.boardArr.indexOf(enemyKing);
+        isCheck=kingIndex>=0&&getPossibleMoves(piece,toIndex).includes(kingIndex);
+        if(isCheck) audio.playAudio(audio.sound.check);
+        else if(captured) audio.playAudio(audio.sound.capture);
+        else audio.playAudio(audio.sound.move);
+        return true;
     }
 
     algebraicToIndex(algebraic) {
-        const file = algebraic.charCodeAt(0) - 'a'.charCodeAt(0);
-        const rank = 8 - parseInt(algebraic[1], 10);
-        return rank * 8 + file;
+        const file=algebraic.charCodeAt(0)-97;
+        const rank=8-parseInt(algebraic[1],10);
+        return rank*8+file;
     }
-
 }
 
-board = new Board();
+board=new Board();
