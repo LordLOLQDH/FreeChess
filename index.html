@@ -1,64 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
-    <link rel="manifest" href="./site.webmanifest">
-    <link rel="shortcut icon" href="./favicon.ico">
-    <meta property="og:title" content="FreeChess - by Adam Kraus">
-    <meta property="og:description" content="Play chess for free. No paywall, no premium.">
-    <meta property="og:image" content="https://lordlolqdh.github.io/FreeChess/android-chrome-512x512.png">
-    <meta property="og:url" content="https://lordlolqdh.github.io/FreeChess/">
-    <meta name="twitter:card" content="summary_large_image">
-    <title>FreeChess - by Adam Kraus</title>
-    <style>
-        * { box-sizing: border-box; }
-        html, body { width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:#000; overscroll-behavior:none; touch-action:none; }
-        .watermark {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 70vmin; height: 70vmin;
-            background-image: url('./android-chrome-512x512.png'); background-repeat: no-repeat; background-size: contain; background-position: center;
-            filter: invert(1) brightness(1.2); opacity: 0.05; pointer-events: none !important; z-index: 0;
-        }
-        .game--cont { width:100vw; width:100dvw; height:100dvh; display:flex; justify-content:center; align-items:center; position:relative; overflow:hidden; z-index: 1; }
-        .game { width:100vw; width:100dvw; height:min(100dvw,100dvh); max-width:100dvw; max-height:100dvh; position:relative; flex:0 0 auto; }
-        .game canvas { position:absolute; inset:0; width:100%; height:100%; display:block; z-index:10 !important; pointer-events:auto !important; touch-action:none; }
-        .board-cont { position:absolute; left:0; top:0; width:480px; height:480px; transform-origin:top left; z-index:1; pointer-events:none !important; }
-        .board-cont div { position:absolute; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
+<link rel="manifest" href="./site.webmanifest">
+<title>FreeChess</title>
+<style>
+* { box-sizing:border-box; } html,body{width:100%;height:100%;margin:0;padding:0;overflow:hidden;background:#000}
+.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:70vmin;height:70vmin;background:url('./android-chrome-512x512.png') center/contain no-repeat;filter:invert(1);opacity:.05;pointer-events:none!important;z-index:0}
+.game--cont{width:100dvw;height:100dvh;display:flex;justify-content:center;align-items:center;z-index:1}
+.game{width:100vw;height:min(100vw,100dvh);position:relative}
+.game canvas{position:absolute;inset:0;width:100%;height:100%;z-index:10!important;pointer-events:auto!important;touch-action:none}
+.board-cont{position:absolute;left:0;top:0;width:480px;height:480px;transform-origin:top left;pointer-events:none!important;z-index:1}
+.board-cont div{position:absolute}
+</style>
 </head>
 <body>
-    <div class="watermark"></div>
-    <div class="game--cont"><div class="game"><canvas id="board"></canvas><div class="board-cont"></div></div></div>
+<div class="watermark"></div>
+<div class="game--cont"><div class="game"><canvas id="board"></canvas><div class="board-cont"></div></div></div>
 
-    <!-- FIXED ORDER: chess.js muss zuerst kommen, aber Version 0.10.3 nutzen -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-
-    <!-- Dann Utils (getSqre, getBoardIndex) -->
-    <script src="utils.js?v=20260825-5"></script>
-
-    <!-- Dann Globals (FIXED Version!) -->
-    <script src="general.js?v=20260825-5"></script>
-
-    <!-- Dann Board / Pieces -->
-    <script src="pieces.js?v=20260825-5"></script>
-    <script src="board.js?v=20260825-5"></script>
-
-    <!-- Dann Rules Engine -->
-    <script src="rules.js?v=20260825-5"></script>
-
-    <!-- Dann Main + Sound + Stockfish -->
-    <script src="main.js?v=20260825-5"></script>
-    <script src="sound.js?v=20260825-5"></script>
-    <script src="stockfish.js?v=20260825-5"></script>
-
-    <!-- ZULETZT Controls (FIXED) -->
-    <script src="controls.js?v=20260825-5"></script>
-    <script src="mobile.js?v=20260825-5"></script>
-    <script src="stats.js?v=20260825-5"></script>
-    <script src="game-ui.js?v=20260825-5"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<!-- WICHTIG: Cache-Buster auf 999 -->
+<script src="utils.js?v=999"></script>
+<script src="pieces.js?v=999"></script>
+<script src="board.js?v=999"></script>
+<script src="rules.js?v=999"></script>
+<script src="main.js?v=999"></script>
+<script src="sound.js?v=999"></script>
+<script src="stockfish.js?v=999"></script>
+<script src="controls.js?v=999"></script>
+<script src="mobile.js?v=999"></script>
+<script src="stats.js?v=999"></script>
+<!-- general.js und game-ui.js INLINE damit kein Cache-Fehler mehr möglich ist -->
+<script>
+// === INLINE FIXED GENERAL.JS ===
+var cvs = document.getElementById('board');
+var ctx = cvs? cvs.getContext('2d') : null;
+var pieces; var board;
+var sprite = new Image(); sprite.src = './assets/chess_pieces.png';
+var whiteTurn = true, halfMoveCount=0, fullMoveCount=1, playStockFishMove=false;
+var stockfishRequestQueued=false, stockfishRetryTimer=null;
+var isWhiteRightCastleLegal=true,isWhiteLeftCastleLegal=true,isBlackRightCastleLegal=true,isBlackLeftCastleLegal=true;
+var whiteDangerSqrs=[],blackDangerSqrs=[],isCheck=false,playerLost=false,playerWon=false,draw=false;
+var sqreScale=60, boardScale=480;
+function ensureCanvas(){ if(!cvs) cvs=document.getElementById('board'); if(cvs&&!ctx) ctx=cvs.getContext('2d'); if(cvs){cvs.width=480;cvs.height=480;} }
+var update=function(){ if(!ctx||!board||!pieces) return; ctx.clearRect(0,0,cvs.width,cvs.height); board.boardArr.forEach(function(sqr,i){ if(sqr!==0){ var sq=typeof getSqre==='function'?getSqre(i):{x:(i%8)*60,y:Math.floor(i/8)*60}; pieces.drawPiece(pieces.type[sqr],[{x:sq.x,y:sq.y}]); } }); };
+var requestStockfishMove=function(){ if(typeof stockfishAi==='undefined'||!stockfishAi||!board||whiteTurn) return; if(typeof fcGameOver==='function'&&fcGameOver()) return; if(stockfishRetryTimer){clearTimeout(stockfishRetryTimer);stockfishRetryTimer=null;} if(stockfishAi.busy){stockfishRequestQueued=true;return;} stockfishRequestQueued=false; playStockFishMove=true; stockfishAi.playStockfishMove().then(function(p){ if(!p&&!whiteTurn){playStockFishMove=false;stockfishRetryTimer=setTimeout(function(){stockfishRetryTimer=null;requestStockfishMove();},250);return;} if(stockfishRequestQueued&&!whiteTurn&&!stockfishAi.busy){stockfishRequestQueued=false;setTimeout(requestStockfishMove,0);} }).catch(function(){playStockFishMove=false;}); };
+ensureCanvas();
+</script>
+<script>
+// === INLINE FIXED GAME-UI.JS ===
+(function(){
+var style=document.createElement('style'); style.textContent='#fcStartScreen,#fcResultScreen{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px;background:#050505;color:#fff;font-family:Arial,sans-serif}.fcPanel{width:min(460px,100%);padding:28px;border:1px solid #333;border-radius:20px;background:#111;text-align:center}.fcPanel button{width:100%;margin-top:16px;padding:14px;border:0;border-radius:11px;background:#fff;color:#111;font-weight:800;cursor:pointer}'; document.head.appendChild(style);
+var start=document.createElement('div'); start.id='fcStartScreen'; start.innerHTML='<div class="fcPanel"><h1>FreeChess</h1><p>Bereit?</p><input id="fcStartName" value="Player"><input id="fcStartRating" type="number" value="1200"><button id="fcStartButton">Partie starten</button></div>'; document.body.appendChild(start);
+var result=document.createElement('div'); result.id='fcResultScreen'; result.style.display='none'; result.innerHTML='<div class="fcPanel"><h2 id="fcResultTitle">Ende</h2><p id="fcResultText"></p><button id="fcResultNew">Neue Partie</button></div>'; document.body.appendChild(result);
+function startGame(){ console.log('CLICKED'); try{ if(typeof fcResetRules==='function') fcResetRules(); else if(typeof board!=='undefined') board.init(); }catch(e){console.error(e);} start.style.display='none'; result.style.display='none'; if(typeof ensureCanvas==='function') ensureCanvas(); if(typeof update==='function') update(); if(typeof drawBoard==='function') drawBoard(); }
+document.getElementById('fcStartButton').addEventListener('click', startGame);
+document.getElementById('fcResultNew').addEventListener('click', function(){ location.reload(); });
+})();
+</script>
 </body>
 </html>
