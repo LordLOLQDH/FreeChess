@@ -1,66 +1,95 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
-<link rel="manifest" href="./site.webmanifest">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="icon" href="./android-chrome-512x512.png">
 <title>FreeChess</title>
 <style>
-* { box-sizing:border-box; } html,body{width:100%;height:100%;margin:0;padding:0;overflow:hidden;background:#000}
-.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:70vmin;height:70vmin;background:url('./android-chrome-512x512.png') center/contain no-repeat;filter:invert(1);opacity:.05;pointer-events:none!important;z-index:0}
-.game--cont{width:100dvw;height:100dvh;display:flex;justify-content:center;align-items:center;z-index:1}
-.game{width:100vw;height:min(100vw,100dvh);position:relative}
-.game canvas{position:absolute;inset:0;width:100%;height:100%;z-index:10!important;pointer-events:auto!important;touch-action:none}
-.board-cont{position:absolute;left:0;top:0;width:480px;height:480px;transform-origin:top left;pointer-events:none!important;z-index:1}
+html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;touch-action:none}
+.game{width:100dvw;height:100dvh;display:flex;justify-content:center;align-items:center}
+.board-wrap{position:relative;width:min(100vw,100dvh);height:min(100vw,100dvh)}
+#board{position:absolute;inset:0;width:100%;height:100%;z-index:10;touch-action:none}
+.board-cont{position:absolute;left:0;top:0;width:480px;height:480px;transform-origin:top left;pointer-events:none;z-index:1}
 .board-cont div{position:absolute}
 </style>
 </head>
 <body>
-<div class="watermark"></div>
-<div class="game--cont"><div class="game"><canvas id="board"></canvas><div class="board-cont"></div></div></div>
+<div class="game"><div class="board-wrap"><canvas id="board"></canvas><div class="board-cont"></div></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-<!-- WICHTIG: Cache-Buster auf 999 -->
-<script src="utils.js?v=999"></script>
-<script src="pieces.js?v=999"></script>
-<script src="board.js?v=999"></script>
-<script src="rules.js?v=999"></script>
-<script src="main.js?v=999"></script>
-<script src="sound.js?v=999"></script>
-<script src="stockfish.js?v=999"></script>
-<script src="controls.js?v=999"></script>
-<script src="mobile.js?v=999"></script>
-<script src="stats.js?v=999"></script>
-<!-- general.js und game-ui.js INLINE damit kein Cache-Fehler mehr möglich ist -->
+<script src="utils.js?v=minimal"></script>
+<script src="pieces.js?v=minimal"></script>
+<script src="board.js?v=minimal"></script>
+
 <script>
-// === INLINE FIXED GENERAL.JS ===
-var cvs = document.getElementById('board');
-var ctx = cvs? cvs.getContext('2d') : null;
-var pieces; var board;
-var sprite = new Image(); sprite.src = './assets/chess_pieces.png';
-var whiteTurn = true, halfMoveCount=0, fullMoveCount=1, playStockFishMove=false;
-var stockfishRequestQueued=false, stockfishRetryTimer=null;
-var isWhiteRightCastleLegal=true,isWhiteLeftCastleLegal=true,isBlackRightCastleLegal=true,isBlackLeftCastleLegal=true;
-var whiteDangerSqrs=[],blackDangerSqrs=[],isCheck=false,playerLost=false,playerWon=false,draw=false;
+// === MINIMAL GENERAL + RULES INLINE - KEIN CACHE PROBLEM ===
+var cvs=document.getElementById('board'), ctx=cvs.getContext('2d');
+var sprite=new Image(); sprite.src='./assets/chess_pieces.png';
+var whiteTurn=true, isCheck=false, playerLost=false, playerWon=false, draw=false;
 var sqreScale=60, boardScale=480;
-function ensureCanvas(){ if(!cvs) cvs=document.getElementById('board'); if(cvs&&!ctx) ctx=cvs.getContext('2d'); if(cvs){cvs.width=480;cvs.height=480;} }
-var update=function(){ if(!ctx||!board||!pieces) return; ctx.clearRect(0,0,cvs.width,cvs.height); board.boardArr.forEach(function(sqr,i){ if(sqr!==0){ var sq=typeof getSqre==='function'?getSqre(i):{x:(i%8)*60,y:Math.floor(i/8)*60}; pieces.drawPiece(pieces.type[sqr],[{x:sq.x,y:sq.y}]); } }); };
-var requestStockfishMove=function(){ if(typeof stockfishAi==='undefined'||!stockfishAi||!board||whiteTurn) return; if(typeof fcGameOver==='function'&&fcGameOver()) return; if(stockfishRetryTimer){clearTimeout(stockfishRetryTimer);stockfishRetryTimer=null;} if(stockfishAi.busy){stockfishRequestQueued=true;return;} stockfishRequestQueued=false; playStockFishMove=true; stockfishAi.playStockfishMove().then(function(p){ if(!p&&!whiteTurn){playStockFishMove=false;stockfishRetryTimer=setTimeout(function(){stockfishRetryTimer=null;requestStockfishMove();},250);return;} if(stockfishRequestQueued&&!whiteTurn&&!stockfishAi.busy){stockfishRequestQueued=false;setTimeout(requestStockfishMove,0);} }).catch(function(){playStockFishMove=false;}); };
-ensureCanvas();
+var isWhiteRightCastleLegal=true,isWhiteLeftCastleLegal=true,isBlackRightCastleLegal=true,isBlackLeftCastleLegal=true;
+var halfMoveCount=0,fullMoveCount=1,whiteDangerSqrs=[],blackDangerSqrs=[],playStockFishMove=false;
+var pieces, board, fcRules=null;
+
+function getChessCtor(){ return typeof Chess==='function'?Chess:null; }
+function fcCreateRules(){ var C=getChessCtor(); if(!C) return null; fcRules=new C(); fcSyncBoardFromRules(); return fcRules; }
+function fcEnsureRules(){ if(!fcRules) fcCreateRules(); return fcRules; }
+function fcSyncBoardFromRules(){
+  if(!fcRules||!board) return;
+  var next=new Array(64).fill(0); var rows=fcRules.board();
+  var map={wp:'wP',wn:'wN',wb:'wB',wr:'wR',wq:'wQ',wk:'wK',bp:'bP',bn:'bN',bb:'bB',br:'bR',bq:'bQ',bk:'bK'};
+  for(var r=0;r<8;r++) for(var c=0;c<8;c++){ var p=rows[r][c]; if(p) next[r*8+c]=map[p.color+p.type]; }
+  board.boardArr=next; whiteTurn=fcRules.turn()==='w';
+  try{ var f=fcRules.fen().split(' '); var rights=f[2]; isWhiteRightCastleLegal=rights.includes('K'); isWhiteLeftCastleLegal=rights.includes('Q'); isBlackRightCastleLegal=rights.includes('k'); isBlackLeftCastleLegal=rights.includes('q'); }catch{}
+}
+function fcResetRules(){ var ch=fcEnsureRules(); if(!ch) return false; ch.reset(); fcSyncBoardFromRules(); return true; }
+function fcPlayerMove(from,to,p='q'){ var ch=fcEnsureRules(); if(!ch||ch.turn()!=='w') return false; try{ var m=ch.move({from:from,to:to,promotion:p}); if(!m) return false; fcSyncBoardFromRules(); return true; }catch{return false;} }
+function fcStockfishMove(uci){ var ch=fcEnsureRules(); if(!ch||ch.turn()!=='b') return false; var from=uci.slice(0,2), to=uci.slice(2,4), prom=uci.length>4?uci[4]:undefined; try{ var m=ch.move({from:from,to:to, promotion:prom}); if(!m) return false; fcSyncBoardFromRules(); return true; }catch{return false;} }
+function fcGameOver(){ return fcRules&&fcRules.isGameOver(); }
+
+var update=function(){ if(!ctx||!board||!pieces) return; ctx.clearRect(0,0,480,480); board.boardArr.forEach(function(s,i){ if(s!==0){ var sq=getSqre(i); pieces.drawPiece(pieces.type[s],[{x:sq.x,y:sq.y}]); } }); };
+var requestStockfishMove=function(){ if(typeof stockfishAi==='undefined'||!board||whiteTurn) return; if(stockfishAi.busy) return; stockfishAi.playStockfishMove(); };
+
+cvs.width=480; cvs.height=480;
 </script>
+
+<script src="main.js?v=minimal"></script>
+<script src="sound.js?v=minimal"></script>
+<script src="stockfish.js?v=minimal"></script>
+
 <script>
-// === INLINE FIXED GAME-UI.JS ===
-(function(){
-var style=document.createElement('style'); style.textContent='#fcStartScreen,#fcResultScreen{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px;background:#050505;color:#fff;font-family:Arial,sans-serif}.fcPanel{width:min(460px,100%);padding:28px;border:1px solid #333;border-radius:20px;background:#111;text-align:center}.fcPanel button{width:100%;margin-top:16px;padding:14px;border:0;border-radius:11px;background:#fff;color:#111;font-weight:800;cursor:pointer}'; document.head.appendChild(style);
-var start=document.createElement('div'); start.id='fcStartScreen'; start.innerHTML='<div class="fcPanel"><h1>FreeChess</h1><p>Bereit?</p><input id="fcStartName" value="Player"><input id="fcStartRating" type="number" value="1200"><button id="fcStartButton">Partie starten</button></div>'; document.body.appendChild(start);
-var result=document.createElement('div'); result.id='fcResultScreen'; result.style.display='none'; result.innerHTML='<div class="fcPanel"><h2 id="fcResultTitle">Ende</h2><p id="fcResultText"></p><button id="fcResultNew">Neue Partie</button></div>'; document.body.appendChild(result);
-function startGame(){ console.log('CLICKED'); try{ if(typeof fcResetRules==='function') fcResetRules(); else if(typeof board!=='undefined') board.init(); }catch(e){console.error(e);} start.style.display='none'; result.style.display='none'; if(typeof ensureCanvas==='function') ensureCanvas(); if(typeof update==='function') update(); if(typeof drawBoard==='function') drawBoard(); }
-document.getElementById('fcStartButton').addEventListener('click', startGame);
-document.getElementById('fcResultNew').addEventListener('click', function(){ location.reload(); });
-})();
+// === MINIMAL CONTROLS - SOFORT SPIELBAR ===
+var isDown=false, draggedPiece=null, prevSqrIndex=null, possibleSqres=[];
+function bIndex(e){ var rect=cvs.getBoundingClientRect(); var cx=e.clientX||e.touches[0].clientX, cy=e.clientY||e.touches[0].clientY; var x=(cx-rect.left)*(480/rect.width), y=(cy-rect.top)*(480/rect.height); return getBoardIndex(x,y); }
+function iToS(i){ return 'abcdefgh'[i%8]+(8-Math.floor(i/8)); }
+function legal(i){ try{ return fcRules.moves({square:iToS(i),verbose:true}).map(function(m){return (8-Number(m.to[1]))*8+(m.to.charCodeAt(0)-97)}); }catch{return[];} }
+
+sprite.onload=function(){
+  fcCreateRules(); update(); drawBoard();
+  cvs.addEventListener('pointerdown', function(e){
+    if(!whiteTurn||fcGameOver()) return; var idx=bIndex(e); var p=board.boardArr[idx]; if(!p||p[0]!=='w') return;
+    isDown=true; prevSqrIndex=idx; draggedPiece=p; possibleSqres=legal(idx); highlight(possibleSqres); update(); drawBoard();
+  });
+  cvs.addEventListener('pointermove', function(e){
+    if(!isDown) return; var rect=cvs.getBoundingClientRect(); var cx=e.clientX||e.touches[0].clientX, cy=e.clientY||e.touches[0].clientY;
+    var x=(cx-rect.left)*(480/rect.width), y=(cy-rect.top)*(480/rect.height); update(); pieces.drawPiece(pieces.type[draggedPiece],[{x:x-30,y:y-30}]);
+  });
+  cvs.addEventListener('pointerup', function(e){
+    if(!isDown) return; var to=bIndex(e); var from=prevSqrIndex; var piece=draggedPiece; isDown=false; draggedPiece=null;
+    if(to>=0 && possibleSqres.includes(to) && fcPlayerMove(iToS(from),iToS(to),'q')){
+      update(); drawBoard(); if(!whiteTurn) setTimeout(requestStockfishMove,200);
+    } else { update(); drawBoard(); }
+    possibleSqres=[];
+  });
+  cvs.addEventListener('click', function(e){
+    if(isDown) return; if(!whiteTurn) return; var idx=bIndex(e); var p=board.boardArr[idx];
+    if(prevSqrIndex===null){ if(p&&p[0]==='w'){ prevSqrIndex=idx; possibleSqres=legal(idx); highlight(possibleSqres); update(); drawBoard(); } return; }
+    if(p&&p[0]==='w'){ prevSqrIndex=idx; possibleSqres=legal(idx); highlight(possibleSqres); update(); drawBoard(); return; }
+    if(possibleSqres.includes(idx) && fcPlayerMove(iToS(prevSqrIndex),iToS(idx),'q')){ update(); drawBoard(); if(!whiteTurn) setTimeout(requestStockfishMove,200); }
+    prevSqrIndex=null; possibleSqres=[];
+  });
+};
 </script>
 </body>
 </html>
