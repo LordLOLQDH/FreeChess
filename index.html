@@ -17,79 +17,22 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hid
 <body>
 <div class="game"><div class="board-wrap"><canvas id="board"></canvas><div class="board-cont"></div></div></div>
 
+<!-- External libs -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+<!-- Core files -->
 <script src="utils.js?v=minimal"></script>
 <script src="pieces.js?v=minimal"></script>
 <script src="board.js?v=minimal"></script>
-
-<script>
-// === MINIMAL GENERAL + RULES INLINE - KEIN CACHE PROBLEM ===
-var cvs=document.getElementById('board'), ctx=cvs.getContext('2d');
-var sprite=new Image(); sprite.src='./assets/chess_pieces.png';
-var whiteTurn=true, isCheck=false, playerLost=false, playerWon=false, draw=false;
-var sqreScale=60, boardScale=480;
-var isWhiteRightCastleLegal=true,isWhiteLeftCastleLegal=true,isBlackRightCastleLegal=true,isBlackLeftCastleLegal=true;
-var halfMoveCount=0,fullMoveCount=1,whiteDangerSqrs=[],blackDangerSqrs=[],playStockFishMove=false;
-var pieces, board, fcRules=null;
-
-function getChessCtor(){ return typeof Chess==='function'?Chess:null; }
-function fcCreateRules(){ var C=getChessCtor(); if(!C) return null; fcRules=new C(); fcSyncBoardFromRules(); return fcRules; }
-function fcEnsureRules(){ if(!fcRules) fcCreateRules(); return fcRules; }
-function fcSyncBoardFromRules(){
-  if(!fcRules||!board) return;
-  var next=new Array(64).fill(0); var rows=fcRules.board();
-  var map={wp:'wP',wn:'wN',wb:'wB',wr:'wR',wq:'wQ',wk:'wK',bp:'bP',bn:'bN',bb:'bB',br:'bR',bq:'bQ',bk:'bK'};
-  for(var r=0;r<8;r++) for(var c=0;c<8;c++){ var p=rows[r][c]; if(p) next[r*8+c]=map[p.color+p.type]; }
-  board.boardArr=next; whiteTurn=fcRules.turn()==='w';
-  try{ var f=fcRules.fen().split(' '); var rights=f[2]; isWhiteRightCastleLegal=rights.includes('K'); isWhiteLeftCastleLegal=rights.includes('Q'); isBlackRightCastleLegal=rights.includes('k'); isBlackLeftCastleLegal=rights.includes('q'); }catch{}
-}
-function fcResetRules(){ var ch=fcEnsureRules(); if(!ch) return false; ch.reset(); fcSyncBoardFromRules(); return true; }
-function fcPlayerMove(from,to,p='q'){ var ch=fcEnsureRules(); if(!ch||ch.turn()!=='w') return false; try{ var m=ch.move({from:from,to:to,promotion:p}); if(!m) return false; fcSyncBoardFromRules(); return true; }catch{return false;} }
-function fcStockfishMove(uci){ var ch=fcEnsureRules(); if(!ch||ch.turn()!=='b') return false; var from=uci.slice(0,2), to=uci.slice(2,4), prom=uci.length>4?uci[4]:undefined; try{ var m=ch.move({from:from,to:to, promotion:prom}); if(!m) return false; fcSyncBoardFromRules(); return true; }catch{return false;} }
-function fcGameOver(){ return fcRules&&fcRules.isGameOver(); }
-
-var update=function(){ if(!ctx||!board||!pieces) return; ctx.clearRect(0,0,480,480); board.boardArr.forEach(function(s,i){ if(s!==0){ var sq=getSqre(i); pieces.drawPiece(pieces.type[s],[{x:sq.x,y:sq.y}]); } }); };
-var requestStockfishMove=function(){ if(typeof stockfishAi==='undefined'||!board||whiteTurn) return; if(stockfishAi.busy) return; stockfishAi.playStockfishMove(); };
-
-cvs.width=480; cvs.height=480;
-</script>
-
-<script src="main.js?v=minimal"></script>
+<script src="rules.js?v=minimal"></script>
+<script src="general.js?v=minimal"></script>
 <script src="sound.js?v=minimal"></script>
 <script src="stockfish.js?v=minimal"></script>
+<script src="controls.js?v=minimal"></script>
+<script src="mobile.js?v=minimal"></script>
+<script src="game-ui.js?v=minimal"></script>
+<script src="stats.js?v=minimal"></script>
+<script src="main.js?v=minimal"></script>
 
-<script>
-// === MINIMAL CONTROLS - SOFORT SPIELBAR ===
-var isDown=false, draggedPiece=null, prevSqrIndex=null, possibleSqres=[];
-function bIndex(e){ var rect=cvs.getBoundingClientRect(); var cx=e.clientX||e.touches[0].clientX, cy=e.clientY||e.touches[0].clientY; var x=(cx-rect.left)*(480/rect.width), y=(cy-rect.top)*(480/rect.height); return getBoardIndex(x,y); }
-function iToS(i){ return 'abcdefgh'[i%8]+(8-Math.floor(i/8)); }
-function legal(i){ try{ return fcRules.moves({square:iToS(i),verbose:true}).map(function(m){return (8-Number(m.to[1]))*8+(m.to.charCodeAt(0)-97)}); }catch{return[];} }
-
-sprite.onload=function(){
-  fcCreateRules(); update(); drawBoard();
-  cvs.addEventListener('pointerdown', function(e){
-    if(!whiteTurn||fcGameOver()) return; var idx=bIndex(e); var p=board.boardArr[idx]; if(!p||p[0]!=='w') return;
-    isDown=true; prevSqrIndex=idx; draggedPiece=p; possibleSqres=legal(idx); highlight(possibleSqres); update(); drawBoard();
-  });
-  cvs.addEventListener('pointermove', function(e){
-    if(!isDown) return; var rect=cvs.getBoundingClientRect(); var cx=e.clientX||e.touches[0].clientX, cy=e.clientY||e.touches[0].clientY;
-    var x=(cx-rect.left)*(480/rect.width), y=(cy-rect.top)*(480/rect.height); update(); pieces.drawPiece(pieces.type[draggedPiece],[{x:x-30,y:y-30}]);
-  });
-  cvs.addEventListener('pointerup', function(e){
-    if(!isDown) return; var to=bIndex(e); var from=prevSqrIndex; var piece=draggedPiece; isDown=false; draggedPiece=null;
-    if(to>=0 && possibleSqres.includes(to) && fcPlayerMove(iToS(from),iToS(to),'q')){
-      update(); drawBoard(); if(!whiteTurn) setTimeout(requestStockfishMove,200);
-    } else { update(); drawBoard(); }
-    possibleSqres=[];
-  });
-  cvs.addEventListener('click', function(e){
-    if(isDown) return; if(!whiteTurn) return; var idx=bIndex(e); var p=board.boardArr[idx];
-    if(prevSqrIndex===null){ if(p&&p[0]==='w'){ prevSqrIndex=idx; possibleSqres=legal(idx); highlight(possibleSqres); update(); drawBoard(); } return; }
-    if(p&&p[0]==='w'){ prevSqrIndex=idx; possibleSqres=legal(idx); highlight(possibleSqres); update(); drawBoard(); return; }
-    if(possibleSqres.includes(idx) && fcPlayerMove(iToS(prevSqrIndex),iToS(idx),'q')){ update(); drawBoard(); if(!whiteTurn) setTimeout(requestStockfishMove,200); }
-    prevSqrIndex=null; possibleSqres=[];
-  });
-};
-</script>
 </body>
 </html>
