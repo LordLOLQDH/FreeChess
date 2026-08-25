@@ -1,155 +1,101 @@
-// Desktop drag controls. Touch input is handled by mobile.js.
-// Black is AI-controlled and cannot be moved by the player.
+// Desktop controls: drag white pieces. Black is AI-controlled.
 const stockfishAi = new Stockfish();
-let isDrag = false;
 let isDown = false;
-let isUp = true;
-let possibleSqres = [];
-let prevSqrIndex = null;
 let draggedPiece = null;
-let capturedPiece = 0;
-let isStoreSqr = true;
+let prevSqrIndex = null;
+let possibleSqres = [];
+
+function desktopBoardIndex(e) {
+    const rect = cvs.getBoundingClientRect();
+    const scaleX = cvs.width / rect.width;
+    const scaleY = cvs.height / rect.height;
+    return getBoardIndex((e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY);
+}
+
+function desktopResetDrag() {
+    isDown = false;
+    draggedPiece = null;
+    prevSqrIndex = null;
+    possibleSqres = [];
+}
 
 sprite.onload = () => {
-    board.init();
+    if (typeof fcResetRules === 'function') fcResetRules();
     update();
     drawBoard();
 
     document.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'touch') return;
-        const rect = cvs.getBoundingClientRect();
-        const scaleX = cvs.width / rect.width;
-        const scaleY = cvs.height / rect.height;
-        const boardIndex = getBoardIndex((e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY);
-        isDown = true;
-        isUp = false;
+        if (!whiteTurn || (typeof fcGameOver === 'function' && fcGameOver())) return;
 
-        const sqr = board.boardArr[boardIndex];
-        if (whiteTurn && sqr !== 0 && sqr.startsWith('w')) {
-            board.boardArr[boardIndex] = 0;
-            draggedPiece = sqr;
-            prevSqrIndex = boardIndex;
-            isStoreSqr = false;
-            possibleSqres = getPossibleMoves(sqr, boardIndex);
-            highlight(possibleSqres);
-        } else {
-            isDown = false;
-            isUp = true;
-            draggedPiece = null;
-            possibleSqres = [];
-        }
+        const index = desktopBoardIndex(e);
+        const piece = board.boardArr[index];
+        if (!piece || piece[0] !== 'w') return;
+
+        isDown = true;
+        prevSqrIndex = index;
+        draggedPiece = piece;
+        possibleSqres = (getPossibleMoves(piece, index) || []).slice();
+        highlight(possibleSqres);
         update();
         drawBoard();
     });
 
     document.addEventListener('pointermove', (e) => {
-        if (e.pointerType === 'touch') return;
-        ctx.clearRect(0, 0, cvs.width, cvs.height);
-        update();
+        if (e.pointerType === 'touch' || !isDown || !draggedPiece) return;
         const rect = cvs.getBoundingClientRect();
         const scaleX = cvs.width / rect.width;
         const scaleY = cvs.height / rect.height;
-        const mouseX = (e.clientX - rect.left) * scaleX;
-        const mouseY = (e.clientY - rect.top) * scaleY;
-        if (isDown && draggedPiece !== null) {
-            pieces.drawPiece(pieces.type[draggedPiece], [{
-                x: mouseX - pieces.pieceScale / 2,
-                y: mouseY - pieces.pieceScale / 2
-            }]);
-        }
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
+        update();
+        pieces.drawPiece(pieces.type[draggedPiece], [{
+            x: x - pieces.pieceScale / 2,
+            y: y - pieces.pieceScale / 2
+        }]);
     });
 
     document.addEventListener('pointerup', (e) => {
         if (e.pointerType === 'touch') return;
-        isDown = false;
-        isUp = true;
-        const rect = cvs.getBoundingClientRect();
-        const scaleX = cvs.width / rect.width;
-        const scaleY = cvs.height / rect.height;
-        const boardIndex = getBoardIndex((e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY);
+        if (!isDown || !draggedPiece) return;
 
-        const reverseMovement = () => {
-            board.boardArr[prevSqrIndex] = draggedPiece;
-            board.boardArr[boardIndex] = capturedPiece;
-            whiteTurn = true;
-            halfMoveCount = Math.max(0, halfMoveCount - 1);
-            playStockFishMove = false;
-        };
-        const resetMovement = () => {
-            draggedPiece = null;
-            possibleSqres = [];
-            capturedPiece = 0;
-            prevSqrIndex = null;
-        };
+        const from = prevSqrIndex;
+        const to = desktopBoardIndex(e);
+        const piece = draggedPiece;
+        const oldPiece = board.boardArr[to];
+        const wasCapture = oldPiece !== 0 && oldPiece[0] === 'b';
 
-        whiteDangerSqrs = [];
-        blackDangerSqrs = [];
+        const moved = possibleSqres.includes(to) && typeof fcPlayerMove === 'function'
+            ? fcPlayerMove(getSquareNameFromIndex(from), getSquareNameFromIndex(to), 'q')
+            : false;
 
-        if (canWhiteCastleRightSide(prevSqrIndex, draggedPiece, boardIndex)) {
-            isCastle = true;
-            whiteRightSideCastle();
-            resetMovement();
-            whiteTurn = false;
-            audio.playAudio(audio.sound.castle);
-            requestStockfishMove();
-        } else if (canWhiteCastleLeftSide(prevSqrIndex, draggedPiece, boardIndex)) {
-            isCastle = true;
-            whiteLeftSideCastle();
-            resetMovement();
-            whiteTurn = false;
-            audio.playAudio(audio.sound.castle);
-            requestStockfishMove();
-        } else if (draggedPiece !== null && possibleSqres.length > 0) {
-            const isCapture = board.boardArr[boardIndex] !== 0;
-            if (possibleSqres.includes(boardIndex)) {
-                capturedPiece = board.boardArr[boardIndex] !== 0 ? board.boardArr[boardIndex] : 0;
-                board.boardArr[boardIndex] = draggedPiece;
-                board.boardArr[prevSqrIndex] = 0;
-                whiteTurn = false;
+        desktopResetDrag();
 
-                if (draggedPiece[1] === 'P' && (boardIndex < 8 || boardIndex >= 56)) {
-                    board.boardArr[boardIndex] = 'wQ';
-                }
-
-                if (draggedPiece[1] === 'P' || isCapture) halfMoveCount = 0;
-                else halfMoveCount++;
-
-                if (draggedPiece[1] === 'P') pawnsThatHaveMovedPastOnce.push(boardIndex);
-                checkWhiteRightCastleLegality(prevSqrIndex, draggedPiece);
-                checkWhiteLeftCastleLegality(prevSqrIndex, draggedPiece);
-                findWhiteDangerSqrs();
-                findBlackDangerSqrs();
-
-                isCheck = getPossibleMoves(draggedPiece, boardIndex).includes(board.boardArr.indexOf('bK'));
-                if (whiteDangerSqrs.includes(board.boardArr.indexOf('wK'))) reverseMovement();
-
-                if (isCheck) audio.playAudio(audio.sound.check);
-                else audio.playAudio(isCapture ? audio.sound.capture : audio.sound.move);
-
-                if (!whiteTurn && draggedPiece[0] === 'w') requestStockfishMove();
+        if (moved) {
+            if (piece[1] === 'K' && Math.abs(to - from) === 2) {
+                audio.playAudio(audio.sound.castle);
+            } else if (wasCapture) {
+                audio.playAudio(audio.sound.capture);
             } else {
-                board.boardArr[prevSqrIndex] = draggedPiece;
+                audio.playAudio(audio.sound.move);
             }
-            resetMovement();
-        } else if (draggedPiece !== null) {
-            board.boardArr[prevSqrIndex] = draggedPiece;
-            resetMovement();
+            update();
+            drawBoard();
+            if (!whiteTurn && typeof requestStockfishMove === 'function') requestStockfishMove();
+        } else {
+            update();
+            drawBoard();
         }
-
-        update();
-        drawBoard();
     });
 
     document.addEventListener('pointercancel', (e) => {
         if (e.pointerType === 'touch') return;
-        if (draggedPiece !== null && prevSqrIndex !== null) board.boardArr[prevSqrIndex] = draggedPiece;
-        isDown = false;
-        isUp = true;
-        draggedPiece = null;
-        possibleSqres = [];
-        capturedPiece = 0;
-        prevSqrIndex = null;
+        desktopResetDrag();
         update();
         drawBoard();
     });
 };
+
+function getSquareNameFromIndex(index) {
+    return 'abcdefgh'[index % 8] + (8 - Math.floor(index / 8));
+}
