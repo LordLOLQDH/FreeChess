@@ -60,7 +60,6 @@ function mobileTriggerAIIfNeeded() {
 }
 
 function mobileMakeMove(from, to, piece) {
-    // Only White can ever be moved by the player.
     if (!piece || piece[0] !== 'w' || !whiteTurn || from === null || to === null) return false;
 
     if (piece === 'wK' && to === 62 && canWhiteCastleRightSide(from, piece, 63)) {
@@ -68,7 +67,7 @@ function mobileMakeMove(from, to, piece) {
         whiteRightSideCastle();
         whiteTurn = false;
         playStockFishMove = false;
-        audio.playAudio(audio.sound.move);
+        audio.playAudio(audio.sound.castle);
         mobileTriggerAIIfNeeded();
         return true;
     }
@@ -77,7 +76,7 @@ function mobileMakeMove(from, to, piece) {
         whiteLeftSideCastle();
         whiteTurn = false;
         playStockFishMove = false;
-        audio.playAudio(audio.sound.move);
+        audio.playAudio(audio.sound.castle);
         mobileTriggerAIIfNeeded();
         return true;
     }
@@ -88,32 +87,33 @@ function mobileMakeMove(from, to, piece) {
     const capturedPiece = board.boardArr[to] !== 0 ? board.boardArr[to] : 0;
     board.boardArr[to] = piece;
     board.boardArr[from] = 0;
-
     whiteTurn = false;
-    halfMoveCount++;
-    fullMoveCount = roundToWhole(halfMoveCount / 2);
 
-    if (board.boardArr[to][1] === 'P') pawnsThatHaveMovedPastOnce.push(to);
+    const movedPiece = piece[1] === 'P' && (to < 8 || to >= 56) ? 'wQ' : piece;
+    board.boardArr[to] = movedPiece;
+
+    if (piece[1] === 'P' || capturedPiece) halfMoveCount = 0;
+    else halfMoveCount++;
+
+    if (piece[1] === 'P') pawnsThatHaveMovedPastOnce.push(to);
 
     checkWhiteRightCastleLegality(from, piece);
     checkWhiteLeftCastleLegality(from, piece);
     findWhiteDangerSqrs();
     findBlackDangerSqrs();
 
-    isCheck = getPossibleMoves(piece, to).includes(board.boardArr.indexOf('bK'));
+    isCheck = getPossibleMoves(movedPiece, to).includes(board.boardArr.indexOf('bK'));
     if (whiteDangerSqrs.includes(board.boardArr.indexOf('wK'))) {
         board.boardArr[from] = piece;
         board.boardArr[to] = capturedPiece;
         whiteTurn = true;
-        halfMoveCount--;
-        fullMoveCount = roundToWhole(halfMoveCount / 2);
+        halfMoveCount = Math.max(0, halfMoveCount - 1);
         return false;
     }
 
     if (isCheck) audio.playAudio(audio.sound.check);
     else audio.playAudio(capturedPiece ? audio.sound.capture : audio.sound.move);
 
-    // Exactly one request is made after every legal White move.
     mobileTriggerAIIfNeeded();
     return true;
 }
@@ -124,7 +124,6 @@ function setupMobileControls() {
         e.preventDefault();
         e.stopPropagation();
 
-        // Never allow interaction while Black/Stockfish is to move.
         if (!whiteTurn) {
             mobileClearSelection();
             return;
