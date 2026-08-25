@@ -37,7 +37,7 @@
 ### 📸 Preview
 
 <p align="center">
-  <img src="./preview.png" width="600" alt="FreeChess Preview" style="border-radius:12px; border:1px solid #222;" />
+  <img src="./prewiew.png" width="600" alt="FreeChess Preview" style="border-radius:12px; border:1px solid #222;" />
 </p>
 
 ### 🛠️ Tech Stack
