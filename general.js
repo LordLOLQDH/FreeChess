@@ -32,9 +32,8 @@ const update = () => {
     });
 };
 
-// Ask Stockfish for Black's move. A failed/empty first response is retried
-// automatically while it is still Black's turn, so the first AI reply cannot
-// silently disappear.
+// Ask Stockfish for Black's move. A failed/empty response is retried
+// automatically while it is still Black's turn.
 const requestStockfishMove = () => {
     if (typeof stockfishAi === 'undefined' || !stockfishAi || !board) return;
     if (whiteTurn) return;
@@ -53,8 +52,6 @@ const requestStockfishMove = () => {
     playStockFishMove = true;
 
     stockfishAi.playStockfishMove().then((played) => {
-        // If the engine/API did not produce a move, do not leave the game
-        // permanently waiting. Retry while the position is still Black's turn.
         if (!played && !whiteTurn) {
             playStockFishMove = false;
             stockfishRetryTimer = setTimeout(() => {
@@ -80,9 +77,6 @@ const requestStockfishMove = () => {
     });
 };
 
-const promptUser = (message) => {
-    setTimeout(() => {
-        if (typeof audio !== 'undefined') audio.playAudio(audio.sound.notify);
-        if (window.confirm(message)) window.location.reload();
-    }, 1000);
-};
+// Kept for compatibility with older game-end code. The old browser confirm
+// asking whether the player wants to play again is intentionally disabled.
+const promptUser = () => {};
