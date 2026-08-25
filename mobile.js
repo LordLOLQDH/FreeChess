@@ -1,22 +1,26 @@
 /* =========================================================
-   FREECHESS – MOBILE CONTROLS
-   Tap a white piece, then tap the destination square.
-   chess.js is the only authority for legal moves.
+   FREECHESS – MOBILE TAP CONTROLS
+   Tap a white piece, then tap its destination square.
+   Touch input is handled through click so iPhone/iPad Safari
+   cannot lose the event because of pointer-event handling.
+   chess.js remains the only authority for legal moves.
    ========================================================= */
 
 let mobileSelectedIndex = null;
-let mobileSelectedPiece = null;
 
-function mobileSquare(index) {
+function mobileIndexToSquare(index) {
     return 'abcdefgh'[index % 8] + (8 - Math.floor(index / 8));
 }
 
-function mobileBoardIndexFromEvent(event) {
+function mobileIndexFromClientPoint(clientX, clientY) {
+    if (!cvs) return -1;
+
     const rect = cvs.getBoundingClientRect();
     if (!rect.width || !rect.height) return -1;
 
-    const x = (event.clientX - rect.left) * (cvs.width / rect.width);
-    const y = (event.clientY - rect.top) * (cvs.height / rect.height);
+    const x = (clientX - rect.left) * (cvs.width / rect.width);
+    const y = (clientY - rect.top) * (cvs.height / rect.height);
+
     const col = Math.floor(x / sqreScale);
     const row = Math.floor(y / sqreScale);
 
@@ -24,21 +28,12 @@ function mobileBoardIndexFromEvent(event) {
     return row * 8 + col;
 }
 
-function mobileClearSelection(redraw = true) {
-    mobileSelectedIndex = null;
-    mobileSelectedPiece = null;
-    if (redraw) {
-        update();
-        drawBoard();
-    }
-}
-
-function mobileLegal(index) {
+function mobileLegalDestinations(index) {
     if (!fcRules || index < 0 || index >= 64) return [];
 
     try {
         return fcRules.moves({
-            square: mobileSquare(index),
+            square: mobileIndexToSquare(index),
             verbose: true
         }).map(move => {
             const col = move.to.charCodeAt(0) - 97;
@@ -51,13 +46,15 @@ function mobileLegal(index) {
     }
 }
 
-function mobileShowSelection() {
+function mobileRedrawSelection() {
     update();
     drawBoard();
 
     if (mobileSelectedIndex === null) return;
 
-    for (const index of mobileLegal(mobileSelectedIndex)) {
+    const legal = mobileLegalDestinations(mobileSelectedIndex);
+
+    for (const index of legal) {
         const row = Math.floor(index / 8);
         const col = index % 8;
         ctx.fillStyle = 'rgba(0,170,255,.32)';
@@ -68,13 +65,27 @@ function mobileShowSelection() {
     const col = mobileSelectedIndex % 8;
     ctx.strokeStyle = 'rgba(255,215,0,.95)';
     ctx.lineWidth = 4;
-    ctx.strokeRect(col * sqreScale + 2, row * sqreScale + 2, sqreScale - 4, sqreScale - 4);
+    ctx.strokeRect(
+        col * sqreScale + 2,
+        row * sqreScale + 2,
+        sqreScale - 4,
+        sqreScale - 4
+    );
 }
 
-function mobileMakeMove(from, to) {
-    if (from === null || to === null || !fcRules || !whiteTurn) return false;
+function mobileClearSelection() {
+    mobileSelectedIndex = null;
+    update();
+    drawBoard();
+}
+
+function mobileTryMove(from, to) {
+    if (from === null || to === null) return false;
+    if (!fcRules || !whiteTurn) return false;
     if (typeof fcGameOver === 'function' && fcGameOver()) return false;
-    if (!mobileLegal(from).includes(to)) return false;
+
+    const legal = mobileLegalDestinations(from);
+    if (!legal.includes(to)) return false;
 
     const piece = board.boardArr[from];
     const target = board.boardArr[to];
@@ -82,15 +93,23 @@ function mobileMakeMove(from, to) {
     const wasCastle = piece === 'wK' && Math.abs(to - from) === 2;
 
     let moved = false;
+
     try {
-        moved = fcPlayerMove(mobileSquare(from), mobileSquare(to), 'q');
+        moved = fcPlayerMove(
+            mobileIndexToSquare(from),
+            mobileIndexToSquare(to),
+            'q'
+        );
     } catch (error) {
         console.error('Mobile: Spielerzug fehlgeschlagen:', error);
+        return false;
     }
 
     if (!moved) return false;
 
-    if (typeof audio !== 'undefined') {
+    mobileSelectedIndex = null;
+
+    if (typeof audio !== 'undefined' && audio && typeof audio.playAudio === 'function') {
         if (wasCastle) audio.playAudio(audio.sound.castle);
         else if (wasCapture) audio.playAudio(audio.sound.capture);
         else audio.playAudio(audio.sound.move);
@@ -99,7 +118,8 @@ function mobileMakeMove(from, to) {
     update();
     drawBoard();
 
-    if (!whiteTurn && typeof requestStockfishMove === 'function' &&
+    if (!whiteTurn &&
+        typeof requestStockfishMove === 'function' &&
         !(typeof fcGameOver === 'function' && fcGameOver())) {
         setTimeout(requestStockfishMove, 0);
     }
@@ -107,8 +127,9 @@ function mobileMakeMove(from, to) {
     return true;
 }
 
-function mobileHandlePointer(event) {
-    if (event.pointerType !== 'touch') return;
+function mobileHandleClick(event) {
+    /* Desktop drag controls handle mouse input. This handler is for taps. */
+    if (event.detail === 0) return;
 
     event.preventDefault();
     event.stopPropagation();
@@ -118,61 +139,47 @@ function mobileHandlePointer(event) {
         return;
     }
 
-    const index = mobileBoardIndexFromEvent(event);
+    const index = mobileIndexFromClientPoint(event.clientX, event.clientY);
     if (index < 0) return;
 
     const piece = board.boardArr[index];
 
+    /* First tap: select a white piece. */
     if (mobileSelectedIndex === null) {
         if (piece && piece[0] === 'w') {
             mobileSelectedIndex = index;
-            mobileSelectedPiece = piece;
-            mobileShowSelection();
+            mobileRedrawSelection();
         }
         return;
     }
 
-    /* Tapping another white piece changes the selection. */
+    /* Tap another white piece: switch selection. */
     if (piece && piece[0] === 'w') {
         mobileSelectedIndex = index;
-        mobileSelectedPiece = piece;
-        mobileShowSelection();
+        mobileRedrawSelection();
         return;
     }
 
     const from = mobileSelectedIndex;
-    const moved = mobileMakeMove(from, index);
 
-    if (moved) {
-        mobileClearSelection();
+    if (mobileTryMove(from, index)) {
         return;
     }
 
-    /* Illegal destination: keep the selected piece highlighted. */
+    /* Illegal destination: keep the original selection. */
     mobileSelectedIndex = from;
-    mobileSelectedPiece = board.boardArr[from];
-    mobileShowSelection();
+    mobileRedrawSelection();
 }
 
 function setupMobileControls() {
     if (!cvs) return;
 
-    cvs.addEventListener('pointerdown', mobileHandlePointer, { passive: false });
-
-    cvs.addEventListener('pointerup', event => {
-        if (event.pointerType === 'touch') {
-            event.preventDefault();
-            event.stopPropagation();
-        }
-    }, { passive: false });
-
-    cvs.addEventListener('pointercancel', event => {
-        if (event.pointerType === 'touch') {
-            event.preventDefault();
-            event.stopPropagation();
-            mobileClearSelection();
-        }
-    }, { passive: false });
+    /*
+       Safari dispatches a normal click after a finger tap.
+       The desktop pointer handlers explicitly ignore touch,
+       so there is no conflict between the two control systems.
+    */
+    cvs.addEventListener('click', mobileHandleClick, { passive: false });
 }
 
 setupMobileControls();
