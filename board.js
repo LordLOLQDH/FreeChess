@@ -20,104 +20,32 @@ class Board {
     }
 
     convertBoardToFEN() {
-        let fen = '';
+        if (typeof fcCurrentFen === 'function' && fcRules) return fcCurrentFen();
 
+        let fen = '';
         for (let i = 0; i < 64; i += 8) {
             let empty = 0;
             for (let j = 0; j < 8; j++) {
                 const p = this.boardArr[i + j];
-                if (p === 0) {
-                    empty++;
-                } else {
-                    if (empty) {
-                        fen += empty;
-                        empty = 0;
-                    }
+                if (p === 0) empty++;
+                else {
+                    if (empty) { fen += empty; empty = 0; }
                     fen += this.pieceMap[p];
                 }
             }
             if (empty) fen += empty;
             if (i < 56) fen += '/';
         }
-
         const active = whiteTurn ? 'w' : 'b';
-        const rights = `${isWhiteRightCastleLegal ? 'K' : ''}${isWhiteLeftCastleLegal ? 'Q' : ''}${isBlackRightCastleLegal ? 'k' : ''}${isBlackLeftCastleLegal ? 'q' : ''}` || '-';
-        const safeHalfMove = Math.max(0, Number.isFinite(halfMoveCount) ? halfMoveCount : 0);
-        const safeFullMove = Math.max(1, Number.isFinite(fullMoveCount) ? fullMoveCount : 1);
-
-        return `${fen} ${active} ${rights} - ${safeHalfMove} ${safeFullMove}`;
+        return `${fen} ${active} - - ${Math.max(0, halfMoveCount || 0)} ${Math.max(1, fullMoveCount || 1)}`;
     }
 
     applyMove(move) {
         const uci = String(move || '').trim().split(/\s+/)[0];
-        if (!/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(uci)) return false;
-
-        const from = uci.substring(0, 2);
-        const to = uci.substring(2, 4);
-        const promotion = uci.length >= 5 ? uci[4].toLowerCase() : null;
-        const fromIndex = this.algebraicToIndex(from);
-        const toIndex = this.algebraicToIndex(to);
-
-        if (fromIndex < 0 || fromIndex >= 64 || toIndex < 0 || toIndex >= 64) return false;
-
-        const piece = this.boardArr[fromIndex];
-        if (!piece || piece[0] !== 'b' || whiteTurn) {
-            console.error(`Invalid Stockfish source square: ${from}`);
-            return false;
+        if (typeof fcStockfishMove === 'function' && fcRules) {
+            return fcStockfishMove(uci);
         }
-
-        const captured = this.boardArr[toIndex] !== 0;
-
-        // UCI castling uses e8g8/e8c8.
-        if (piece === 'bK' && fromIndex === 4 && toIndex === 6) {
-            if (!canBlackCastleRightSide(4, 'bK', 7)) return false;
-            blackRightSideCastle();
-        } else if (piece === 'bK' && fromIndex === 4 && toIndex === 2) {
-            if (!canBlackCastleLeftSide(4, 'bK', 0)) return false;
-            blackLeftSideCastle();
-        } else {
-            const legalMoves = getPossibleMoves(piece, fromIndex) || [];
-            if (!legalMoves.includes(toIndex)) {
-                console.error(`Illegal Stockfish move: ${uci}`);
-                return false;
-            }
-
-            this.boardArr[fromIndex] = 0;
-            this.boardArr[toIndex] = piece;
-
-            if (promotion && piece[1] === 'P' && ['q', 'r', 'b', 'n'].includes(promotion)) {
-                this.boardArr[toIndex] = piece[0] + promotion.toUpperCase();
-            }
-
-            if (piece === 'bK') {
-                isBlackRightCastleLegal = false;
-                isBlackLeftCastleLegal = false;
-            }
-            if (fromIndex === 7 || toIndex === 7) isBlackRightCastleLegal = false;
-            if (fromIndex === 0 || toIndex === 0) isBlackLeftCastleLegal = false;
-        }
-
-        if (piece[1] === 'P' || captured) halfMoveCount = 0;
-        else halfMoveCount++;
-
-        fullMoveCount = Math.max(1, fullMoveCount);
-        fullMoveCount++;
-        whiteTurn = true;
-        playStockFishMove = false;
-
-        whiteDangerSqrs = [];
-        blackDangerSqrs = [];
-        findWhiteDangerSqrs();
-        findBlackDangerSqrs();
-
-        const whiteKingIndex = this.boardArr.indexOf('wK');
-        isCheck = whiteKingIndex >= 0 && getPossibleMoves(piece, toIndex).includes(whiteKingIndex);
-
-        if (isCheck) audio.playAudio(audio.sound.check);
-        else if (captured) audio.playAudio(audio.sound.capture);
-        else audio.playAudio(audio.sound.move);
-
-        return true;
+        return false;
     }
 
     algebraicToIndex(algebraic) {
