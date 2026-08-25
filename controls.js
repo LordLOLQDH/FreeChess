@@ -24,7 +24,6 @@ sprite.onload = () => {
         isDown = true;
         isUp = false;
 
-        // The human can only select White pieces.
         const sqr = board.boardArr[boardIndex];
         if (whiteTurn && sqr !== 0 && sqr.startsWith('w')) {
             board.boardArr[boardIndex] = 0;
@@ -73,8 +72,7 @@ sprite.onload = () => {
             board.boardArr[prevSqrIndex] = draggedPiece;
             board.boardArr[boardIndex] = capturedPiece;
             whiteTurn = true;
-            halfMoveCount--;
-            fullMoveCount = roundToWhole(halfMoveCount / 2);
+            halfMoveCount = Math.max(0, halfMoveCount - 1);
             playStockFishMove = false;
         };
         const resetMovement = () => {
@@ -92,14 +90,14 @@ sprite.onload = () => {
             whiteRightSideCastle();
             resetMovement();
             whiteTurn = false;
-            audio.playAudio(audio.sound.move);
+            audio.playAudio(audio.sound.castle);
             requestStockfishMove();
         } else if (canWhiteCastleLeftSide(prevSqrIndex, draggedPiece, boardIndex)) {
             isCastle = true;
             whiteLeftSideCastle();
             resetMovement();
             whiteTurn = false;
-            audio.playAudio(audio.sound.move);
+            audio.playAudio(audio.sound.castle);
             requestStockfishMove();
         } else if (draggedPiece !== null && possibleSqres.length > 0) {
             const isCapture = board.boardArr[boardIndex] !== 0;
@@ -108,10 +106,15 @@ sprite.onload = () => {
                 board.boardArr[boardIndex] = draggedPiece;
                 board.boardArr[prevSqrIndex] = 0;
                 whiteTurn = false;
-                halfMoveCount++;
-                fullMoveCount = roundToWhole(halfMoveCount / 2);
 
-                if (board.boardArr[boardIndex][1] === 'P') pawnsThatHaveMovedPastOnce.push(boardIndex);
+                if (draggedPiece[1] === 'P' && (boardIndex < 8 || boardIndex >= 56)) {
+                    board.boardArr[boardIndex] = 'wQ';
+                }
+
+                if (draggedPiece[1] === 'P' || isCapture) halfMoveCount = 0;
+                else halfMoveCount++;
+
+                if (draggedPiece[1] === 'P') pawnsThatHaveMovedPastOnce.push(boardIndex);
                 checkWhiteRightCastleLegality(prevSqrIndex, draggedPiece);
                 checkWhiteLeftCastleLegality(prevSqrIndex, draggedPiece);
                 findWhiteDangerSqrs();
