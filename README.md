@@ -4,7 +4,7 @@
 
 <h1 align="center">FreeChess ♔</h1>
 <p align="center">
-  <strong>100% Free. No paywall. No premium. Just Chess.</strong><br>
+  <strong>100% kostenlos. Keine Paywall. Kein Premium. Einfach Schach.</strong><br>
   by Adam Kraus
 </p>
 
