@@ -12,7 +12,7 @@ class Stockfish {
     }
 
     _initLocalWorker() {
-        // Try common local paths. If worker cannot be created, fallback to API mode.
+        // Try common local paths. If worker cannot be created, fallback to other strategies.
         const candidates = [
             './assets/stockfish/stockfish.js',
             './assets/stockfish.wasm.js',
@@ -21,13 +21,12 @@ class Stockfish {
 
         const tryNext = (index) => {
             if (index >= candidates.length) {
-                console.warn('Stockfish: no local engine found, falling back to remote API.');
-                this.useAPI = true;
+                console.warn('Stockfish: no local engine found, will use JS fallback or remote API.');
+                this.useAPI = false;
                 return;
             }
             try {
                 const path = candidates[index];
-                // Create worker and set up message handler
                 const w = new Worker(path);
                 w.onmessage = (ev) => this._onWorkerMessage(ev);
                 w.onerror = (err) => {
@@ -36,11 +35,8 @@ class Stockfish {
                 this.worker = w;
                 this.enginePath = path;
                 this._sendToWorker('uci');
-                // we'll wait for 'uciok' in onmessage before marking initialized
-                // but still mark worker present
                 console.log('Stockfish: worker created from', path);
             } catch (e) {
-                // Creating Worker may throw synchronously in some environments
                 console.warn('Stockfish: Worker instantiation failed for', candidates[index], e);
                 tryNext(index + 1);
             }
@@ -59,7 +55,6 @@ class Stockfish {
 
     _onWorkerMessage(ev) {
         const data = ev && ev.data ? ev.data.toString() : '';
-        // console.log('stockfish<', data);
         if (!this.initialized) {
             if (data.indexOf('uciok') !== -1) {
                 this._sendToWorker('isready');
@@ -69,7 +64,6 @@ class Stockfish {
             }
         }
 
-        // Look for bestmove lines
         const bm = this._parseBestMoveFromText(data);
         if (bm) {
             const reqId = Object.keys(this.pending)[0];
@@ -82,7 +76,6 @@ class Stockfish {
             }
         }
 
-        // Some builds post objects {type:..., data:...}
         if (!data && typeof ev.data === 'object') {
             const txt = JSON.stringify(ev.data);
             const bm2 = this._parseBestMoveFromText(txt);
@@ -112,6 +105,7 @@ class Stockfish {
         this.busy = true;
         const requestId = ++this.requestId;
 
+        // 1) Local worker
         if (this.worker && this.initialized) {
             return new Promise((resolve) => {
                 const timeout = setTimeout(() => {
@@ -122,7 +116,6 @@ class Stockfish {
                     }
                 }, 8000);
                 this.pending[requestId] = { resolve, timeout };
-                // set position and ask for best move
                 try {
                     this._sendToWorker('position fen ' + fen);
                     this._sendToWorker('go depth 12');
@@ -135,17 +128,45 @@ class Stockfish {
             });
         }
 
-        // If worker not initialized yet but exists, wait briefly for initialization then try
+        // 2) If worker exists but not initialized, wait briefly
         if (this.worker && !this.initialized) {
-            // wait up to 3s for ready
             const start = Date.now();
             while (!this.initialized && Date.now() - start < 3000) {
+                // small sleep
                 await new Promise(r => setTimeout(r, 100));
             }
             if (this.initialized) return this.getBestMove(fen);
         }
 
-        // Fallback: remote API (older behavior)
+        // 3) JS fallback using chess.js (fast, local, not as strong as Stockfish)
+        try {
+            if (typeof fcEnsureRules === 'function') {
+                const ch = fcEnsureRules();
+                if (ch) {
+                    // generate moves for current side using chess.js
+                    const moves = ch.moves({ verbose: true });
+                    if (moves && moves.length > 0) {
+                        // prefer captures with highest piece value
+                        const valueMap = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+                        let best = null;
+                        let bestScore = -Infinity;
+                        for (const m of moves) {
+                            let score = 0;
+                            if (m.captured) score += valueMap[m.captured.toLowerCase()] || 0;
+                            // small randomization
+                            score += Math.random() * 0.1;
+                            if (score > bestScore) { bestScore = score; best = m; }
+                        }
+                        this.busy = false;
+                        return (best.from + best.to + (best.promotion ? best.promotion : '')).trim();
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Stockfish JS fallback failed:', e);
+        }
+
+        // 4) Remote API fallback
         try {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 8000);
@@ -158,8 +179,8 @@ class Stockfish {
             clearTimeout(timeout);
             if (!response.ok) throw new Error('HTTP ' + response.status);
             const data = await response.json();
-            if (!data || typeof data.move !== 'string') throw new Error('Keine gültige Engine-Antwort');
             this.busy = false;
+            if (!data || typeof data.move !== 'string') throw new Error('Keine gültige Engine-Antwort');
             return data.move.trim();
         } catch (error) {
             console.error('Stockfish API Fehler:', error);
