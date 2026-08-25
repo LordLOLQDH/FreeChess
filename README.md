@@ -54,4 +54,5 @@ git clone https://github.com/LordLOLQDH/FreeChess.git
 cd FreeChess
 # index.html öffnen - fertig!
 
+```
 <p align="center"><b>FreeChess stays free.</b></p>
