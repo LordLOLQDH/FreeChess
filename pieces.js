@@ -19,6 +19,12 @@ class Pieces {
             bQ: { id: 'bQ', cx: 426, cy: 429, cw: 424, ch: 429 },
             bK: { id: 'bK', cx: 0, cy: 429, cw: 424, ch: 429 }
         };
+
+        // fallback unicode glyphs if sprite image not available
+        this.glyphs = {
+            wP: '♙', wN: '♘', wB: '♗', wR: '♖', wQ: '♕', wK: '♔',
+            bP: '♟', bN: '♞', bB: '♝', bR: '♜', bQ: '♛', bK: '♚'
+        };
     }
 
     // sqr: [{x: 0, y: 0}]
@@ -33,21 +39,35 @@ class Pieces {
         const sqrCenterX = sqr[0].x + (scale / 2);
         const sqrCenterY = sqr[0].y + (scale / 2);
 
-        try {
-            ctx.drawImage(sprite,
-                type.cx,
-                type.cy,
-                type.cw,
-                type.ch,
-                sqrCenterX - this.pieceScale / 2,
-                sqrCenterY - this.pieceScale / 2,
-                this.pieceScale, this.pieceScale
-            );
-        } catch (e) {
-            // drawing might fail if sprite not loaded yet
-            // silently ignore to avoid breaking game
-            // console.warn('drawPiece failed', e);
+        // prefer sprite if loaded
+        const spriteAvailable = (typeof sprite !== 'undefined' && sprite && sprite.complete && sprite.naturalWidth && sprite.naturalWidth > 0);
+
+        if (spriteAvailable) {
+            try {
+                ctx.drawImage(sprite,
+                    type.cx,
+                    type.cy,
+                    type.cw,
+                    type.ch,
+                    sqrCenterX - this.pieceScale / 2,
+                    sqrCenterY - this.pieceScale / 2,
+                    this.pieceScale, this.pieceScale
+                );
+                return;
+            } catch (e) {
+                // fallthrough to glyph fallback
+            }
         }
+
+        // glyph fallback (works even if sprite missing)
+        const id = type.id || '';
+        const glyph = this.glyphs[id] || '?';
+        ctx.fillStyle = (id[0] === 'b') ? '#000' : '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // pick a font size near pieceScale
+        ctx.font = `${Math.floor(this.pieceScale)}px sans-serif`;
+        ctx.fillText(glyph, sqrCenterX, sqrCenterY + 2);
     }
 }
 
