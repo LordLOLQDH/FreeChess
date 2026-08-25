@@ -1,58 +1,26 @@
-const sqreScale = 60;
-const boardScale = 8 * sqreScale;
-
 const boardCont = document.querySelector('.board-cont');
 const gameCont = document.querySelector('.game');
-
-cvs.width = boardScale;
-cvs.height = boardScale;
-
+if(typeof ensureCanvas==='function') ensureCanvas();
 const resizeBoard = () => {
-    if (!gameCont || !boardCont) return;
-
-    // The chessboard should always use the full available width.
-    // Do not limit it to the old 480px desktop size.
-    const viewportWidth = window.visualViewport?.width || window.innerWidth;
-    const viewportHeight = window.visualViewport?.height || window.innerHeight;
-
-    // Portrait: use the complete screen width.
-    // Landscape: use the largest square that actually fits vertically.
-    const size = Math.min(
-        viewportWidth,
-        viewportWidth > viewportHeight ? viewportHeight : viewportWidth
-    );
-
-    gameCont.style.width = `${size}px`;
-    gameCont.style.height = `${size}px`;
-    gameCont.style.maxWidth = 'none';
-    gameCont.style.maxHeight = 'none';
+    if (!gameCont ||!boardCont) return;
+    const vw = window.visualViewport?.width || window.innerWidth;
+    const vh = window.visualViewport?.height || window.innerHeight;
+    const size = Math.min(vw, vw > vh? vh : vw);
+    gameCont.style.width = `${size}px`; gameCont.style.height = `${size}px`;
     boardCont.style.transform = `scale(${size / boardScale})`;
 };
-
 const drawBoard = () => {
-    boardCont.innerHTML = '';
-
+    if(!boardCont) return; boardCont.innerHTML = '';
     for (let row = 0; row < boardScale; row += sqreScale) {
         for (let col = 0; col < boardScale; col += sqreScale) {
-            const newSqr = document.createElement('div');
-            newSqr.style.backgroundColor = (row + col) % 120 === 0 ? '#d3dee5' : '#7599b1';
-            newSqr.style.left = `${col}px`;
-            newSqr.style.top = `${row}px`;
-            newSqr.style.width = `${sqreScale}px`;
-            newSqr.style.height = `${sqreScale}px`;
-            boardCont.appendChild(newSqr);
+            const d = document.createElement('div');
+            d.style.backgroundColor = (row + col) % 120 === 0? '#d3dee5' : '#7599b1';
+            d.style.left = `${col}px`; d.style.top = `${row}px`; d.style.width = `${sqreScale}px`; d.style.height = `${sqreScale}px`; d.style.position='absolute'; d.style.pointerEvents='none';
+            boardCont.appendChild(d);
         }
-    }
-
-    resizeBoard();
+    } resizeBoard();
 };
-
-resizeBoard();
 window.addEventListener('resize', resizeBoard);
-window.addEventListener('orientationchange', () => {
-    setTimeout(resizeBoard, 100);
-});
-
-if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', resizeBoard);
-}
+window.addEventListener('orientationchange', ()=>setTimeout(resizeBoard,100));
+if (window.visualViewport) window.visualViewport.addEventListener('resize', resizeBoard);
+drawBoard();
