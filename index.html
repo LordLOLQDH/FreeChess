@@ -1,30 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
-</head>
-  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
-<link rel="manifest" href="./site.webmanifest">
-<link rel="shortcut icon" href="./favicon.ico">
-
-<!-- Das hier ist für die Vorschau wenn du den Link verschickst -->
-<meta property="og:title" content="FreeChess - by Adam Kraus">
-<meta property="og:description" content="Play chess for free. No paywall, no premium.">
-<meta property="og:image" content="https://lordlolqdh.github.io/Web-Chess/android-chrome-512x512.png">
-<meta property="og:url" content="https://lordlolqdh.github.io/Web-Chess/">
-<meta name="twitter:card" content="summary_large_image">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
+    <link rel="manifest" href="./site.webmanifest">
+    <link rel="shortcut icon" href="./favicon.ico">
+
+    <!-- Vorschau wenn du den Link verschickst -->
+    <meta property="og:title" content="FreeChess - by Adam Kraus">
+    <meta property="og:description" content="Play chess for free. No paywall, no premium.">
+    <meta property="og:image" content="https://lordlolqdh.github.io/Web-Chess/android-chrome-512x512.png">
+    <meta property="og:url" content="https://lordlolqdh.github.io/Web-Chess/">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <title>FreeChess - by Adam Kraus</title>
+
     <style>
         * { box-sizing: border-box; }
         html, body { width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:#000; overscroll-behavior:none; touch-action:none; }
-        .game--cont { width:100vw; width:100dvw; height:100dvh; display:flex; justify-content:center; align-items:center; position:relative; overflow:hidden; }
+        
+        /* FreeChess Wasserzeichen - halbtransparent im Hintergrund */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 65vmin;
+            height: 65vmin;
+            background-image: url('./android-chrome-512x512.png');
+            background-repeat: no-repeat;
+            background-size: contain;
+            background-position: center;
+            filter: invert(1) brightness(1.2);
+            opacity: 0.06;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .game--cont { width:100vw; width:100dvw; height:100dvh; display:flex; justify-content:center; align-items:center; position:relative; overflow:hidden; z-index: 1; }
         .game { width:100vw; width:100dvw; height:min(100dvw,100dvh); max-width:100dvw; max-height:100dvh; position:relative; flex:0 0 auto; }
         .game canvas { position:absolute; inset:0; width:100%; height:100%; display:block; z-index:999; touch-action:none; }
         .board-cont { position:absolute; left:0; top:0; width:480px; height:480px; transform-origin:top left; z-index:1; pointer-events:none; }
         .board-cont div { position:absolute; }
     </style>
-    <title>FreeChess - by Adam Kraus</title>
 </head>
 <body>
     <div class="game--cont"><div class="game"><canvas></canvas><div class="board-cont"></div></div></div>
