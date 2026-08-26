@@ -1,14 +1,19 @@
 const boardCont = document.querySelector('.board-cont');
 const gameCont = document.querySelector('.game');
+const boardWrap = document.querySelector('.board-wrap');
 if(typeof ensureCanvas==='function') ensureCanvas();
 const resizeBoard = () => {
-    if (!gameCont ||!boardCont) return;
+    if (!gameCont || !boardCont || !boardWrap) return;
     const vw = window.visualViewport?.width || window.innerWidth;
     const vh = window.visualViewport?.height || window.innerHeight;
-    const size = Math.min(vw, vw > vh? vh : vw);
-    gameCont.style.width = `${size}px`; gameCont.style.height = `${size}px`;
-    // center the board container then scale from center
-    boardCont.style.transform = `translate(-50%,-50%) scale(${size / boardScale})`;
+    const size = Math.min(vw, vh);
+    // set game container to viewport square so flex centering works
+    gameCont.style.width = `${size}px`;
+    gameCont.style.height = `${size}px`;
+    const scale = size / boardScale;
+    // scale the fixed-size board-wrap and keep it centered by flexbox
+    boardWrap.style.transform = `scale(${scale})`;
+    boardWrap.style.transformOrigin = 'center center';
 };
 const drawBoard = () => {
     if(!boardCont) return; boardCont.innerHTML = '';
