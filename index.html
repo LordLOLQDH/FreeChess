@@ -6,11 +6,43 @@
 <link rel="icon" href="./android-chrome-512x512.png">
 <title>FreeChess</title>
 <style>
-html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;touch-action:none}
-.game{width:100vw;height:100vh;display:flex;justify-content:center;align-items:center}
-.board-wrap{position:relative;width:480px;height:480px;transform-origin:center center}
-#board{position:relative;width:100%;height:100%;z-index:10;touch-action:none;display:block}
-.board-cont{position:absolute;left:0;top:0;width:100%;height:100%;transform-origin:center center;pointer-events:none;z-index:1}
+html,body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  background:#000;
+  overflow:hidden;
+  touch-action:none;
+}
+.game{
+  width:100vw;
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center; /* zentriert vertikal + horizontal */
+}
+.board-wrap{
+  width:480px;
+  height:480px;
+  position:relative;
+  transform-origin:center center;
+}
+#board{
+  width:100%;
+  height:100%;
+  display:block;
+  touch-action:none;
+}
+.board-cont{
+  position:absolute;
+  left:0;
+  top:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+  z-index:1;
+}
 .board-cont div{position:absolute}
 </style>
 </head>
