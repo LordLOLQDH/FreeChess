@@ -7,10 +7,10 @@
 <title>FreeChess</title>
 <style>
 html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;touch-action:none}
-.game{width:100dvw;height:100dvh;display:flex;justify-content:center;align-items:center}
-.board-wrap{position:relative;width:min(100vw,100dvh);height:min(100vw,100dvh)}
-#board{position:absolute;inset:0;width:100%;height:100%;z-index:10;touch-action:none}
-.board-cont{position:absolute;left:0;top:0;width:480px;height:480px;transform-origin:top left;pointer-events:none;z-index:1}
+.game{width:100vw;height:100vh;display:flex;justify-content:center;align-items:center}
+.board-wrap{position:relative;width:480px;height:480px;transform-origin:center center}
+#board{position:relative;width:100%;height:100%;z-index:10;touch-action:none;display:block}
+.board-cont{position:absolute;left:0;top:0;width:100%;height:100%;transform-origin:center center;pointer-events:none;z-index:1}
 .board-cont div{position:absolute}
 </style>
 </head>
